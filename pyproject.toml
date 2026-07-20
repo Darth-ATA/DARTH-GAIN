@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "darth-gain"
+version = "0.1.0"
+description = "Automate your Hevy workout progression for hypertrophy gains"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+  { name = "Darth-ATA" },
+]
+requires-python = ">=3.11"
+dependencies = [
+  "hevy-api-wrapper>=1.0.0",
+  "click>=8.0",
+  "rich>=13.0",
+]
+
+[project.scripts]
+darth-gain = "darth_gain.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/darth_gain"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
