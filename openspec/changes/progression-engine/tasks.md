@@ -257,7 +257,7 @@ def insert_history(conn, template_id: str, status: str,
 
 ---
 
-## Task T4: Implement progression engine algorithm
+## ✅ Task T4: Implement progression engine algorithm
 
 | Attribute | Value |
 |-----------|-------|
@@ -304,19 +304,19 @@ class ProgressionEngine:
 
 ### Acceptance Criteria
 
-- [ ] All sets at rep_max → status `"progress"`, recommended = current + increment
-- [ ] One set below rep_max → status `"maintain"`, recommended `None`
-- [ ] Multiple workouts → only most recent workout matters
-- [ ] Sets above rep_max also satisfy the condition (12 reps at rep_max=10 → progress)
-- [ ] Working weight = mode; tie → heavier
-- [ ] NULL weight_kg sets skipped; NULL reps sets skipped
-- [ ] All NULLs in most recent workout → `insufficient_data`
-- [ ] No normal sets at all → `insufficient_data`
-- [ ] All sets deleted → `insufficient_data`
-- [ ] Disabled config (enabled=0) → status `"skipped"`
-- [ ] Unknown template ID → status with `error` populated, `recommendation` explains
-- [ ] Each check result persisted to `progression_history`
-- [ ] History row contains correct `current_weight_kg`, `recommended_weight_kg`, `details`
+- [x] All sets at rep_max → status `"progress"`, recommended = current + increment
+- [x] One set below rep_max → status `"maintain"`, recommended `None`
+- [x] Multiple workouts → only most recent workout matters
+- [x] Sets above rep_max also satisfy the condition (12 reps at rep_max=10 → progress)
+- [x] Working weight = mode; tie → heavier
+- [x] NULL weight_kg sets skipped; NULL reps sets skipped
+- [x] All NULLs in most recent workout → `insufficient_data`
+- [x] No normal sets at all → `insufficient_data`
+- [x] All sets deleted → `insufficient_data`
+- [x] Disabled config (enabled=0) → status `"skipped"`
+- [x] Unknown template ID → status with `error` populated, `recommendation` explains
+- [x] Each check result persisted to `progression_history`
+- [x] History row contains correct `current_weight_kg`, `recommended_weight_kg`, `details`
 
 ### Test Requirements
 

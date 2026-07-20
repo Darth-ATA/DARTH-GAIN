@@ -187,6 +187,65 @@ def get_latest_history(
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Exercise Template helpers
+# ---------------------------------------------------------------------------
+
+
+def get_template(conn: sqlite3.Connection, template_id: str) -> dict | None:
+    """Return an exercise template dict, or None if not found.
+
+    Args:
+        conn: Open SQLite connection.
+        template_id: The exercise template ID to look up.
+
+    Returns:
+        A dict with the template row, or ``None``.
+    """
+    cursor = conn.execute(
+        "SELECT id, title, type, primary_muscle_group, other_muscle_groups, "
+        "equipment, is_custom, cached_at "
+        "FROM exercise_templates WHERE id = ?",
+        (template_id,),
+    )
+    row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+def get_normal_sets(conn: sqlite3.Connection, template_id: str) -> list[dict]:
+    """Return all normal, non-deleted sets for an exercise template.
+
+    Joins across sets → exercises → workouts, returning only sets where
+    ``type = 'normal'`` and all rows have ``is_deleted = 0``.
+
+    Args:
+        conn: Open SQLite connection.
+        template_id: The exercise template ID to look up.
+
+    Returns:
+        List of dicts ordered by ``workouts.start_time DESC, sets.set_index ASC``.
+        Each dict includes ``weight_kg``, ``reps``, ``start_time``,
+        ``exercise_id``, and ``set_index``.
+    """
+    cursor = conn.execute(
+        """SELECT s.id, s.exercise_id, s.set_index, s.type,
+                  s.weight_kg, s.reps, s.is_deleted,
+                  e.exercise_template_id,
+                  w.start_time
+           FROM sets s
+           JOIN exercises e ON s.exercise_id = e.id
+           JOIN workouts w ON e.workout_id = w.id
+           WHERE e.exercise_template_id = ?
+             AND s.type = 'normal'
+             AND s.is_deleted = 0
+             AND e.is_deleted = 0
+             AND w.is_deleted = 0
+           ORDER BY w.start_time DESC, s.set_index ASC""",
+        (template_id,),
+    )
+    return [dict(row) for row in cursor.fetchall()]
+
+
 def _row_to_history_entry(row: sqlite3.Row) -> ProgressionHistoryEntry:
     """Convert a SQLite row to a ProgressionHistoryEntry."""
     return ProgressionHistoryEntry(
