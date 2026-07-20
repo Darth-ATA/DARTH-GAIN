@@ -373,15 +373,15 @@ darth-gain progression config set <exercise_template_id> [options]
 
 ### Acceptance Criteria
 
-- [ ] `darth-gain --help` shows `progression` in the command list
-- [ ] `darth-gain progression --help` shows `check` and `config`
-- [ ] `darth-gain progression check <id>` returns correct status for a configured exercise
-- [ ] `darth-gain progression check <id>` works without HEVY_API_KEY set
-- [ ] `darth-gain progression check <id>` with unknown ID exits non-zero with "not found"
-- [ ] `darth-gain progression config show <id>` shows defaults for unconfigured exercise
-- [ ] `darth-gain progression config set <id> --increment 5.0` updates only increment
-- [ ] `darth-gain progression config set <id> --enabled` sets enabled=1
-- [ ] Custom `--db-path` is respected by both `check` and `config` commands
+- [x] `darth-gain --help` shows `progression` in the command list
+- [x] `darth-gain progression --help` shows `check` and `config`
+- [x] `darth-gain progression check <id>` returns correct status for a configured exercise
+- [x] `darth-gain progression check <id>` works without HEVY_API_KEY set
+- [x] `darth-gain progression check <id>` with unknown ID exits non-zero with "not found"
+- [x] `darth-gain progression config show <id>` shows defaults for unconfigured exercise
+- [x] `darth-gain progression config set <id> --increment 5.0` updates only increment
+- [x] `darth-gain progression config set <id> --enabled` sets enabled=1
+- [x] Custom `--db-path` is respected by both `check` and `config` commands
 
 ### Test Requirements
 
