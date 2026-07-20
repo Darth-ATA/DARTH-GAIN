@@ -68,6 +68,27 @@ CREATE TABLE IF NOT EXISTS sync_metadata (
     key   TEXT PRIMARY KEY,
     value TEXT
 );
+
+CREATE TABLE IF NOT EXISTS progression_config (
+    exercise_template_id TEXT PRIMARY KEY REFERENCES exercise_templates(id),
+    rep_min              INTEGER NOT NULL DEFAULT 8,
+    rep_max              INTEGER NOT NULL DEFAULT 12,
+    weight_increment     REAL NOT NULL DEFAULT 2.5,
+    enabled              INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS progression_history (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    exercise_template_id TEXT NOT NULL REFERENCES exercise_templates(id),
+    checked_at           TEXT NOT NULL DEFAULT (datetime('now')),
+    status               TEXT NOT NULL CHECK(status IN ('progress','maintain','insufficient_data','skipped')),
+    current_weight_kg    REAL,
+    recommended_weight_kg REAL,
+    details              TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_progression_history_template
+    ON progression_history(exercise_template_id);
 """
 
 
