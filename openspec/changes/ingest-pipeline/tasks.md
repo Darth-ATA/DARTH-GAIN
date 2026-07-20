@@ -40,16 +40,16 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: CLI & Wiring
 
-- [ ] 3.1 Create `src/darth_gain/cli.py` — Click `ingest` command with all flags (TDD, spec scenarios)
-- [ ] 3.2 Create `src/darth_gain/__init__.py`, `db/__init__.py`, `hevy/__init__.py` packages
-- [ ] 3.3 Create `scripts/install-cron.sh` — idempotent crontab helper with `--remove`, `--status`
+- [x] 3.1 Create `src/darth_gain/cli.py` — Click `ingest` command with all flags (TDD, spec scenarios)
+- [x] 3.2 Create `src/darth_gain/__init__.py`, `db/__init__.py`, `hevy/__init__.py` packages
+- [x] 3.3 Create `scripts/install-cron.sh` — idempotent crontab helper with `--remove`, `--status`
 
 ## Phase 4: Integration & Verification
 
-- [ ] 4.1 Verify all 14 spec scenarios pass (ingestion 10, cache 3, scheduling 1)
-- [ ] 4.2 Run end-to-end test: config→sync→db with mocked API responses
-- [ ] 4.3 Verify non-TTY progress bar suppression and summary output for cron
+- [x] 4.1 Verify all 14 spec scenarios pass (ingestion 10, cache 3, scheduling 1)
+- [x] 4.2 Run end-to-end test: config→sync→db with mocked API responses
+- [x] 4.3 Verify non-TTY progress bar suppression and summary output for cron
 
 ## Phase 5: Documentation
 
-- [ ] 5.1 Create `SCHEDULING.md` — cron setup, env vars, verification, removal instructions
+- [x] 5.1 Create `SCHEDULING.md` — cron setup, env vars, verification, removal instructions
