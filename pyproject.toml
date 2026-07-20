@@ -16,6 +16,7 @@ dependencies = [
   "hevy-api-wrapper>=1.0.0",
   "click>=8.0",
   "rich>=13.0",
+  "platformdirs>=4.0",
 ]
 
 [project.scripts]
