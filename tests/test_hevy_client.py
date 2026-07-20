@@ -76,41 +76,95 @@ class TestHevyClientInit:
 
 
 class TestGetEvents:
-    """HevyClient.get_events wraps SDK get_workout_events."""
+    """HevyClient.get_events bypasses the SDK pydantic model via _request()."""
+
+    # -------------------------------------------------------------------
+    # Helpers — raw API response fragments
+    # -------------------------------------------------------------------
+
+    @staticmethod
+    def _workout_dict(
+        workout_id: str,
+        title: str | None = None,
+        exercises: list[dict] | None = None,
+    ) -> dict:
+        """Return a minimal raw workout dict as the API would return it."""
+        return {
+            "id": workout_id,
+            "title": title or f"Workout {workout_id}",
+            "description": "",
+            "start_time": "2024-06-01T08:00:00Z",
+            "end_time": "2024-06-01T09:00:00Z",
+            "updated_at": "2024-06-01T10:00:00Z",
+            "created_at": "2024-05-01T08:00:00Z",
+            "exercises": exercises or [],
+        }
+
+    @staticmethod
+    def _raw_api_response(
+        raw_events: list[dict],
+        page: int = 1,
+        page_count: int = 3,
+    ) -> dict:
+        """Return a dict that simulates the raw ``/v1/workouts/events`` JSON.
+
+        The API returns ``workouts`` (not ``events``) as the key for the
+        array of change items.
+        """
+        return {"page": page, "page_count": page_count, "workouts": raw_events}
+
+    @staticmethod
+    def _mock_response(json_data: dict) -> MagicMock:
+        """Build a mock ``_request`` return value with a ``.json()`` method."""
+        resp = MagicMock()
+        resp.json.return_value = json_data
+        return resp
+
+    # -------------------------------------------------------------------
+    # Tests
+    # -------------------------------------------------------------------
 
     def test_calls_sdk_with_correct_params(self) -> None:
-        """get_events passes since and page to the SDK method."""
+        """get_events calls _request with the right HTTP method and path."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events([])
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response([])
             )
             client = HevyClient(api_key="test-key")
 
             client.get_events(since="2024-01-01T00:00:00Z", page=2)
 
-            mock_sdk.return_value.workouts.get_events.assert_called_once_with(
-                since="2024-01-01T00:00:00Z", page=2, page_size=10
+            mock_sdk.return_value._request.assert_called_once_with(
+                "GET",
+                "/v1/workouts/events",
+                params={"since": "2024-01-01T00:00:00Z", "page": 2, "pageSize": 10},
             )
 
     def test_defaults_to_page_1(self) -> None:
-        """get_events defaults to page 1 when not specified."""
+        """get_events defaults to page 1 with page_size=10."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events([])
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response([])
             )
             client = HevyClient(api_key="test-key")
 
             client.get_events(since="2024-01-01T00:00:00Z")
 
-            mock_sdk.return_value.workouts.get_events.assert_called_once_with(
-                since="2024-01-01T00:00:00Z", page=1, page_size=10
+            mock_sdk.return_value._request.assert_called_once_with(
+                "GET",
+                "/v1/workouts/events",
+                params={"since": "2024-01-01T00:00:00Z", "page": 1, "pageSize": 10},
             )
 
     def test_returns_events_page_with_metadata(self) -> None:
         """get_events returns EventsPage with page/page_count/total_count."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events([_sdk_updated_event("w001")])
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response(
+                    [{"type": "updated", "workout": self._workout_dict("w001")}],
+                    page=1,
+                    page_count=3,
+                )
             )
             client = HevyClient(api_key="test-key")
 
@@ -121,10 +175,12 @@ class TestGetEvents:
             assert result.total_count == 1
 
     def test_converts_updated_event(self) -> None:
-        """An updated SDK event becomes WorkoutEvent with type='updated'."""
+        """An updated workout becomes WorkoutEvent with type='updated'."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events([_sdk_updated_event("w001")])
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response(
+                    [{"type": "updated", "workout": self._workout_dict("w001")}]
+                )
             )
             client = HevyClient(api_key="test-key")
 
@@ -137,10 +193,12 @@ class TestGetEvents:
             assert event.workout["id"] == "w001"
 
     def test_converts_deleted_event(self) -> None:
-        """A deleted SDK event becomes WorkoutEvent with type='deleted'."""
+        """A deleted event becomes WorkoutEvent with type='deleted'."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events([_sdk_deleted_event("w099")])
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response(
+                    [{"type": "deleted"}]
+                )
             )
             client = HevyClient(api_key="test-key")
 
@@ -154,9 +212,12 @@ class TestGetEvents:
     def test_converts_mixed_events(self) -> None:
         """Both updated and deleted events are converted correctly."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events(
-                    [_sdk_updated_event("w001"), _sdk_deleted_event("w099")]
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response(
+                    [
+                        {"type": "updated", "workout": self._workout_dict("w001")},
+                        {"type": "deleted"},
+                    ]
                 )
             )
             client = HevyClient(api_key="test-key")
@@ -170,39 +231,40 @@ class TestGetEvents:
             assert result.events[1].workout is None
 
     def test_workout_dict_includes_repo_fields(self) -> None:
-        """The converted workout dict has fields expected by repo.upsert_workout."""
+        """The workout dict has the fields expected by repo.upsert_workout."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            sdk_workout = MagicMock()
-            sdk_workout.id = "w001"
-            sdk_workout.title = "Push Day"
-            sdk_workout.description = "Chest"
-            sdk_workout.start_time = "2024-06-01T08:00:00Z"
-            sdk_workout.end_time = "2024-06-01T09:00:00Z"
-            sdk_workout.updated_at = "2024-06-01T10:00:00Z"
-            sdk_workout.created_at = "2024-05-01T08:00:00Z"
-
-            sdk_exercise = MagicMock()
-            sdk_exercise.index = 0
-            sdk_exercise.title = "Bench Press"
-            sdk_exercise.notes = "Go heavy"
-            sdk_exercise.exercise_template_id = "t001"
-            sdk_exercise.supersets_id = None
-
-            sdk_set = MagicMock()
-            sdk_set.index = 0
-            sdk_set.type = "normal"
-            sdk_set.weight_kg = 80.0
-            sdk_set.reps = 10
-            sdk_set.distance_meters = None
-            sdk_set.duration_seconds = None
-            sdk_set.rpe = None
-            sdk_set.custom_metric = None
-
-            sdk_exercise.sets = [sdk_set]
-            sdk_workout.exercises = [sdk_exercise]
-
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events([_sdk_updated_event_raw(sdk_workout)])
+            raw_workout = {
+                "id": "w001",
+                "title": "Push Day",
+                "description": "Chest",
+                "start_time": "2024-06-01T08:00:00Z",
+                "end_time": "2024-06-01T09:00:00Z",
+                "updated_at": "2024-06-01T10:00:00Z",
+                "created_at": "2024-05-01T08:00:00Z",
+                "exercises": [
+                    {
+                        "exercise_template_id": "t001",
+                        "title": "Bench Press",
+                        "notes": "Go heavy",
+                        "index": 0,
+                        "sets": [
+                            {
+                                "index": 0,
+                                "type": "normal",
+                                "weight_kg": 80.0,
+                                "reps": 10,
+                                "distance_meters": None,
+                                "duration_seconds": None,
+                                "rpe": None,
+                            }
+                        ],
+                    }
+                ],
+            }
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response(
+                    [{"type": "updated", "workout": raw_workout}]
+                )
             )
             client = HevyClient(api_key="test-key")
 
@@ -219,37 +281,37 @@ class TestGetEvents:
             assert workout["created_at"] == "2024-05-01T08:00:00Z"
 
     def test_workout_includes_exercises_with_sort_order(self) -> None:
-        """Exercises are converted with index mapped to sort_order."""
+        """Exercises have index mapped to sort_order."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            sdk_workout = MagicMock()
-            sdk_workout.id = "w001"
-            sdk_workout.title = "Push Day"
-            sdk_workout.description = ""
-            sdk_workout.start_time = "2024-06-01T08:00:00Z"
-            sdk_workout.end_time = "2024-06-01T09:00:00Z"
-            sdk_workout.updated_at = "2024-06-01T10:00:00Z"
-            sdk_workout.created_at = "2024-05-01T08:00:00Z"
-
-            ex1 = MagicMock()
-            ex1.index = 0
-            ex1.title = "Bench Press"
-            ex1.notes = ""
-            ex1.exercise_template_id = "t001"
-            ex1.supersets_id = None
-            ex1.sets = []
-
-            ex2 = MagicMock()
-            ex2.index = 1
-            ex2.title = "Overhead Press"
-            ex2.notes = "Slow negatives"
-            ex2.exercise_template_id = "t002"
-            ex2.supersets_id = None
-            ex2.sets = []
-
-            sdk_workout.exercises = [ex1, ex2]
-
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events([_sdk_updated_event_raw(sdk_workout)])
+            raw_workout = {
+                "id": "w001",
+                "title": "Push Day",
+                "description": "",
+                "start_time": "2024-06-01T08:00:00Z",
+                "end_time": "2024-06-01T09:00:00Z",
+                "updated_at": "2024-06-01T10:00:00Z",
+                "created_at": "2024-05-01T08:00:00Z",
+                "exercises": [
+                    {
+                        "exercise_template_id": "t001",
+                        "title": "Bench Press",
+                        "notes": "",
+                        "index": 0,
+                        "sets": [],
+                    },
+                    {
+                        "exercise_template_id": "t002",
+                        "title": "Overhead Press",
+                        "notes": "Slow negatives",
+                        "index": 1,
+                        "sets": [],
+                    },
+                ],
+            }
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response(
+                    [{"type": "updated", "workout": raw_workout}]
+                )
             )
             client = HevyClient(api_key="test-key")
 
@@ -265,39 +327,40 @@ class TestGetEvents:
             assert exercises[1]["title"] == "Overhead Press"
 
     def test_exercise_includes_sets_with_set_index(self) -> None:
-        """Sets are converted with index mapped to set_index."""
+        """Sets have index mapped to set_index."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            sdk_workout = MagicMock()
-            sdk_workout.id = "w001"
-            sdk_workout.title = "Push Day"
-            sdk_workout.description = ""
-            sdk_workout.start_time = "2024-06-01T08:00:00Z"
-            sdk_workout.end_time = "2024-06-01T09:00:00Z"
-            sdk_workout.updated_at = "2024-06-01T10:00:00Z"
-            sdk_workout.created_at = "2024-05-01T08:00:00Z"
-
-            sdk_set = MagicMock()
-            sdk_set.index = 0
-            sdk_set.type = "normal"
-            sdk_set.weight_kg = 80.0
-            sdk_set.reps = 10
-            sdk_set.distance_meters = None
-            sdk_set.duration_seconds = None
-            sdk_set.rpe = None
-            sdk_set.custom_metric = None
-
-            sdk_exercise = MagicMock()
-            sdk_exercise.index = 0
-            sdk_exercise.title = "Bench Press"
-            sdk_exercise.notes = ""
-            sdk_exercise.exercise_template_id = "t001"
-            sdk_exercise.supersets_id = None
-            sdk_exercise.sets = [sdk_set]
-
-            sdk_workout.exercises = [sdk_exercise]
-
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events([_sdk_updated_event_raw(sdk_workout)])
+            raw_workout = {
+                "id": "w001",
+                "title": "Push Day",
+                "description": "",
+                "start_time": "2024-06-01T08:00:00Z",
+                "end_time": "2024-06-01T09:00:00Z",
+                "updated_at": "2024-06-01T10:00:00Z",
+                "created_at": "2024-05-01T08:00:00Z",
+                "exercises": [
+                    {
+                        "exercise_template_id": "t001",
+                        "title": "Bench Press",
+                        "notes": "",
+                        "index": 0,
+                        "sets": [
+                            {
+                                "index": 0,
+                                "type": "normal",
+                                "weight_kg": 80.0,
+                                "reps": 10,
+                                "distance_meters": None,
+                                "duration_seconds": None,
+                                "rpe": None,
+                            }
+                        ],
+                    }
+                ],
+            }
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response(
+                    [{"type": "updated", "workout": raw_workout}]
+                )
             )
             client = HevyClient(api_key="test-key")
 
@@ -314,14 +377,14 @@ class TestGetEvents:
             assert sets[0]["rpe"] is None
 
     def test_events_maintain_index_order(self) -> None:
-        """Events preserve their index from the SDK response."""
+        """Events preserve their position from the API response."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events(
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response(
                     [
-                        _sdk_updated_event("w001"),
-                        _sdk_updated_event("w002"),
-                        _sdk_deleted_event("w099"),
+                        {"type": "updated", "workout": self._workout_dict("w001")},
+                        {"type": "updated", "workout": self._workout_dict("w002")},
+                        {"type": "deleted"},
                     ]
                 )
             )
@@ -334,10 +397,10 @@ class TestGetEvents:
             assert result.events[2].index == 2
 
     def test_empty_events_page(self) -> None:
-        """An SDK response with no events returns empty events list."""
+        """An empty events response returns empty events list."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.workouts.get_events.return_value = (
-                _sdk_page_with_events([])
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                self._raw_api_response([], page=1, page_count=3)
             )
             client = HevyClient(api_key="test-key")
 
@@ -446,50 +509,6 @@ class TestGetExerciseTemplates:
 # ===========================================================================
 # Helper factories — create SDK mock responses
 # ===========================================================================
-
-
-def _sdk_page_with_events(events: list) -> MagicMock:
-    """Create a mock PaginatedWorkoutEvents SDK response."""
-    page = MagicMock()
-    page.page = 1
-    page.page_count = 3
-    page.events = events
-    return page
-
-
-def _sdk_updated_event(workout_id: str) -> MagicMock:
-    """Create a mock UpdatedWorkout SDK event."""
-    workout = MagicMock()
-    workout.id = workout_id
-    workout.title = f"Workout {workout_id}"
-    workout.description = ""
-    workout.start_time = "2024-06-01T08:00:00Z"
-    workout.end_time = "2024-06-01T09:00:00Z"
-    workout.updated_at = "2024-06-01T10:00:00Z"
-    workout.created_at = "2024-05-01T08:00:00Z"
-    workout.exercises = []
-
-    event = MagicMock()
-    event.type = "updated"
-    event.workout = workout
-    return event
-
-
-def _sdk_updated_event_raw(workout: Any) -> MagicMock:
-    """Create a mock UpdatedWorkout with a pre-built workout mock."""
-    event = MagicMock()
-    event.type = "updated"
-    event.workout = workout
-    return event
-
-
-def _sdk_deleted_event(workout_id: str) -> MagicMock:
-    """Create a mock DeletedWorkout SDK event."""
-    event = MagicMock()
-    event.type = "deleted"
-    event.id = workout_id
-    event.deleted_at = "2024-06-01T10:00:00Z"
-    return event
 
 
 def _sdk_page_with_templates(

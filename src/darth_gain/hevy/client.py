@@ -76,6 +76,9 @@ class HevyClient:
     ) -> EventsPage:
         """Fetch a page of workout change events.
 
+        Bypasses the SDK's pydantic model because the API returns
+        a ``workouts`` key while the SDK expects ``events``.
+
         Args:
             since: ISO 8601 timestamp — only events after this time are
                 returned.
@@ -85,18 +88,26 @@ class HevyClient:
         Returns:
             An ``EventsPage`` with converted ``WorkoutEvent`` entries.
         """
-        resp = self._client.workouts.get_events(
-            since=since, page=page, page_size=page_size
+        params: dict[str, Any] = {"since": since}
+        if page:
+            params["page"] = page
+            params["pageSize"] = page_size
+
+        resp = self._client._request(
+            "GET", "/v1/workouts/events", params=params
         )
+        data = resp.json()
+
+        raw_events: list[dict[str, Any]] = data.get("workouts", [])
 
         events: list[WorkoutEvent] = []
-        for i, event in enumerate(resp.events):
-            if event.type == "updated":
+        for i, raw in enumerate(raw_events):
+            if raw.get("type") == "updated" and "workout" in raw:
                 events.append(
                     WorkoutEvent(
                         index=i,
                         type="updated",
-                        workout=_workout_to_dict(event.workout),
+                        workout=_raw_workout_to_dict(raw["workout"]),
                     )
                 )
             else:  # deleted
@@ -109,8 +120,8 @@ class HevyClient:
                 )
 
         return EventsPage(
-            page=resp.page,
-            page_count=resp.page_count,
+            page=data.get("page", page),
+            page_count=data.get("page_count", 1),
             total_count=len(events),
             events=events,
         )
@@ -193,6 +204,50 @@ def _workout_to_dict(workout: Any) -> dict[str, Any]:
         "end_time": workout.end_time,
         "updated_at": workout.updated_at,
         "created_at": workout.created_at,
+        "exercises": exercises,
+    }
+
+
+def _raw_workout_to_dict(workout: dict[str, Any]) -> dict[str, Any]:
+    """Convert a raw API workout dict to the repo-compatible format.
+
+    Mirrors ``_workout_to_dict`` but works on raw JSON dicts instead of
+    SDK pydantic models — field names ``index`` → ``sort_order`` /
+    ``set_index``.
+    """
+    exercises = []
+    for ex in workout.get("exercises", []):
+        sets = []
+        for s in ex.get("sets", []):
+            sets.append(
+                {
+                    "set_index": s.get("index"),
+                    "type": s.get("type"),
+                    "weight_kg": s.get("weight_kg"),
+                    "reps": s.get("reps"),
+                    "distance_meters": s.get("distance_meters"),
+                    "duration_seconds": s.get("duration_seconds"),
+                    "rpe": s.get("rpe"),
+                }
+            )
+        exercises.append(
+            {
+                "exercise_template_id": ex.get("exercise_template_id"),
+                "title": ex.get("title"),
+                "notes": ex.get("notes") or "",
+                "sort_order": ex.get("index"),
+                "sets": sets,
+            }
+        )
+
+    return {
+        "id": workout.get("id"),
+        "title": workout.get("title"),
+        "description": workout.get("description") or "",
+        "start_time": workout.get("start_time"),
+        "end_time": workout.get("end_time"),
+        "updated_at": workout.get("updated_at"),
+        "created_at": workout.get("created_at"),
         "exercises": exercises,
     }
 
