@@ -1,0 +1,22 @@
+{
+  "page": 1,
+  "pageCount": 1,
+  "exerciseTemplates": [
+    {
+      "id": "t001",
+      "title": "Bench Press",
+      "type": "strength",
+      "primary_muscle_group": "Chest",
+      "secondary_muscle_groups": ["Triceps", "Front Delts"],
+      "is_custom": false
+    },
+    {
+      "id": "t002",
+      "title": "Overhead Press",
+      "type": "strength",
+      "primary_muscle_group": "Shoulders",
+      "secondary_muscle_groups": [],
+      "is_custom": false
+    }
+  ]
+}
