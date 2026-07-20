@@ -33,10 +33,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Hevy Client & Sync
 
-- [ ] 2.1 Create `tests/fixtures/events_page.json` + `templates.json` matching SDK response shapes
-- [ ] 2.2 Create `src/darth_gain/hevy/client.py` — domain dataclasses + `HevyClient` adapter (TDD)
-- [ ] 2.3 Create `src/darth_gain/hevy/sync.py` — orchestrator: paginate, 0.5s pace, error isolation, Rich progress, dry-run (TDD)
-- [ ] 2.4 Create `tests/conftest.py` — shared fixtures: in-memory DB, mock HevyClient, domain objects
+- [x] 2.1 Create `tests/fixtures/events_page.json` + `templates.json` matching SDK response shapes (minimal inline variant)
+- [x] 2.2 Create `src/darth_gain/hevy/client.py` — domain dataclasses + `HevyClient` adapter (TDD)
+- [x] 2.3 Create `src/darth_gain/hevy/sync.py` — orchestrator: paginate, 0.5s pace, error isolation, Rich progress, dry-run (TDD)
+- [x] 2.4 Create `tests/conftest.py` — shared fixtures: in-memory DB, mock HevyClient, domain objects
 
 ## Phase 3: CLI & Wiring
 
