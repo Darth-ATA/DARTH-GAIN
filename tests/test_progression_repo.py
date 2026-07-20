@@ -14,6 +14,8 @@ from darth_gain.progression.repo import (
     get_config,
     get_history,
     get_latest_history,
+    get_normal_sets,
+    get_template,
     set_config,
 )
 
@@ -377,3 +379,124 @@ class TestGetLatestHistory:
         assert latest is not None
         assert latest.id == id2
         assert latest.status == "progress"
+
+
+# ---------------------------------------------------------------------------
+# get_template
+# ---------------------------------------------------------------------------
+
+
+class TestGetTemplate:
+    def test_returns_template_when_exists(self, conn: sqlite3.Connection) -> None:
+        """get_template returns the template dict when the row exists."""
+        conn.execute(
+            """INSERT INTO exercise_templates (id, title, type, primary_muscle_group)
+               VALUES ('t001', 'Bench Press', 'strength', 'Chest')"""
+        )
+        conn.commit()
+        tpl = get_template(conn, "t001")
+        assert tpl is not None
+        assert tpl["id"] == "t001"
+        assert tpl["title"] == "Bench Press"
+        assert tpl["type"] == "strength"
+
+    def test_returns_none_when_not_found(self, conn: sqlite3.Connection) -> None:
+        """get_template returns None when no row matches."""
+        tpl = get_template(conn, "nonexistent")
+        assert tpl is None
+
+
+# ---------------------------------------------------------------------------
+# get_normal_sets
+# ---------------------------------------------------------------------------
+
+
+class TestGetNormalSets:
+    def test_returns_empty_when_no_sets(self, conn: sqlite3.Connection) -> None:
+        """get_normal_sets returns empty list when no sets exist."""
+        result = get_normal_sets(conn, "t001")
+        assert result == []
+
+    def test_returns_only_normal_sets_for_template(
+        self, conn: sqlite3.Connection
+    ) -> None:
+        """get_normal_sets returns only normal, non-deleted sets for the template."""
+        conn.execute(
+            """INSERT INTO exercise_templates (id, title, type, primary_muscle_group)
+               VALUES ('t001', 'Bench Press', 'strength', 'Chest')"""
+        )
+        conn.execute(
+            """INSERT INTO workouts (id, title, start_time)
+               VALUES ('w001', 'Push Day', '2024-06-01T08:00:00Z')"""
+        )
+        conn.execute(
+            """INSERT INTO exercises (id, workout_id, exercise_template_id, title)
+               VALUES (1, 'w001', 't001', 'Bench Press')"""
+        )
+        conn.execute(
+            """INSERT INTO sets (id, exercise_id, set_index, type, weight_kg, reps)
+               VALUES (1, 1, 0, 'normal', 80.0, 10),
+                      (2, 1, 1, 'normal', 80.0, 10),
+                      (3, 1, 2, 'warmup', 40.0, 8),
+                      (4, 1, 3, 'dropset', 60.0, 6)"""
+        )
+        conn.commit()
+        result = get_normal_sets(conn, "t001")
+        assert len(result) == 2
+        assert all(s["type"] == "normal" for s in result)
+        assert all(s["set_index"] in (0, 1) for s in result)
+
+    def test_orders_by_start_time_desc(self, conn: sqlite3.Connection) -> None:
+        """get_normal_sets orders by workout start_time DESC, set_index ASC."""
+        conn.execute(
+            """INSERT INTO exercise_templates (id, title, type, primary_muscle_group)
+               VALUES ('t001', 'Bench Press', 'strength', 'Chest')"""
+        )
+        conn.execute(
+            """INSERT INTO workouts (id, title, start_time)
+               VALUES ('w001', 'Old Workout', '2024-05-01T08:00:00Z'),
+                      ('w002', 'New Workout', '2024-06-01T08:00:00Z')"""
+        )
+        conn.execute(
+            """INSERT INTO exercises (id, workout_id, exercise_template_id, title)
+               VALUES (1, 'w001', 't001', 'Bench Press'),
+                      (2, 'w002', 't001', 'Bench Press')"""
+        )
+        conn.execute(
+            """INSERT INTO sets (id, exercise_id, set_index, type, weight_kg, reps)
+               VALUES (1, 1, 0, 'normal', 80.0, 10),
+                      (2, 2, 0, 'normal', 85.0, 8)"""
+        )
+        conn.commit()
+        result = get_normal_sets(conn, "t001")
+        assert len(result) == 2
+        # Most recent workout first
+        assert result[0]["start_time"] == "2024-06-01T08:00:00Z"
+        assert result[1]["start_time"] == "2024-05-01T08:00:00Z"
+
+    def test_includes_required_fields(self, conn: sqlite3.Connection) -> None:
+        """get_normal_sets result includes weight_kg, reps, start_time, exercise_id."""
+        conn.execute(
+            """INSERT INTO exercise_templates (id, title, type, primary_muscle_group)
+               VALUES ('t001', 'Bench Press', 'strength', 'Chest')"""
+        )
+        conn.execute(
+            """INSERT INTO workouts (id, title, start_time)
+               VALUES ('w001', 'Push Day', '2024-06-01T08:00:00Z')"""
+        )
+        conn.execute(
+            """INSERT INTO exercises (id, workout_id, exercise_template_id, title)
+               VALUES (1, 'w001', 't001', 'Bench Press')"""
+        )
+        conn.execute(
+            """INSERT INTO sets (id, exercise_id, set_index, type, weight_kg, reps)
+               VALUES (1, 1, 0, 'normal', 80.0, 10)"""
+        )
+        conn.commit()
+        result = get_normal_sets(conn, "t001")
+        assert len(result) == 1
+        assert "weight_kg" in result[0]
+        assert "reps" in result[0]
+        assert "start_time" in result[0]
+        assert "exercise_id" in result[0]
+        assert "set_index" in result[0]
