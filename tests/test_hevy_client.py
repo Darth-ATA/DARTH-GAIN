@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from darth_gain.hevy.client import EventsPage, HevyClient, WorkoutEvent
 
@@ -351,11 +350,24 @@ class TestGetEvents:
 class TestGetExerciseTemplates:
     """HevyClient.get_exercise_templates fetches all templates with pagination."""
 
+    def _mock_response(
+        self, templates: list[dict], page: int = 1, page_count: int = 1
+    ) -> MagicMock:
+        """Create a mock httpx.Response that returns the given templates JSON."""
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {
+            "exercise_templates": templates,
+            "page": page,
+            "page_count": page_count,
+        }
+        return resp
+
     def test_fetches_templates(self) -> None:
         """get_exercise_templates calls SDK and returns list of dicts."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.return_value = (
-                _sdk_page_with_templates([_sdk_template("t001", "Bench Press")])
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                [_raw_template("t001", "Bench Press")]
             )
             client = HevyClient(api_key="test-key")
 
@@ -367,10 +379,8 @@ class TestGetExerciseTemplates:
     def test_converts_template_fields(self) -> None:
         """Template dict has fields expected by repo.upsert_templates."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.return_value = (
-                _sdk_page_with_templates(
-                    [_sdk_template("t001", "Bench Press")]
-                )
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                [_raw_template("t001", "Bench Press")]
             )
             client = HevyClient(api_key="test-key")
 
@@ -388,22 +398,17 @@ class TestGetExerciseTemplates:
     def test_paginates_multiple_pages(self) -> None:
         """get_exercise_templates fetches all pages and returns merged list."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            # First call returns page 1 of 2
-            page1 = _sdk_page_with_templates(
-                [_sdk_template("t001", "Bench Press")],
+            page1 = self._mock_response(
+                [_raw_template("t001", "Bench Press")],
                 page=1,
                 page_count=2,
             )
-            # Second call returns page 2 of 2
-            page2 = _sdk_page_with_templates(
-                [_sdk_template("t002", "Overhead Press")],
+            page2 = self._mock_response(
+                [_raw_template("t002", "Overhead Press")],
                 page=2,
                 page_count=2,
             )
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.side_effect = [
-                page1,
-                page2,
-            ]
+            mock_sdk.return_value._request.side_effect = [page1, page2]
             client = HevyClient(api_key="test-key")
 
             result = client.get_exercise_templates()
@@ -411,13 +416,13 @@ class TestGetExerciseTemplates:
             assert len(result) == 2
             assert result[0]["id"] == "t001"
             assert result[1]["id"] == "t002"
-            assert mock_sdk.return_value.exercise_templates.get_exercise_templates.call_count == 2
+            assert mock_sdk.return_value._request.call_count == 2
 
     def test_empty_templates_list(self) -> None:
         """An empty templates response returns an empty list."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.return_value = (
-                _sdk_page_with_templates([], page=1, page_count=1)
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                [], page=1, page_count=1
             )
             client = HevyClient(api_key="test-key")
 
@@ -428,19 +433,17 @@ class TestGetExerciseTemplates:
     def test_single_page_no_extra_call(self) -> None:
         """When page_count is 1, only one API call is made."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.return_value = (
-                _sdk_page_with_templates(
-                    [_sdk_template("t001", "Bench Press")],
-                    page=1,
-                    page_count=1,
-                )
+            mock_sdk.return_value._request.return_value = self._mock_response(
+                [_raw_template("t001", "Bench Press")],
+                page=1,
+                page_count=1,
             )
             client = HevyClient(api_key="test-key")
 
             result = client.get_exercise_templates()
 
             assert len(result) == 1
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.assert_called_once()
+            mock_sdk.return_value._request.assert_called_once()
 
 
 # ===========================================================================
@@ -492,26 +495,13 @@ def _sdk_deleted_event(workout_id: str) -> MagicMock:
     return event
 
 
-def _sdk_page_with_templates(
-    templates: list,
-    page: int = 1,
-    page_count: int = 1,
-) -> MagicMock:
-    """Create a mock PaginatedExerciseTemplates SDK response."""
-    resp = MagicMock()
-    resp.page = page
-    resp.page_count = page_count
-    resp.exercise_templates = templates
-    return resp
-
-
-def _sdk_template(template_id: str, title: str) -> MagicMock:
-    """Create a mock ExerciseTemplate SDK model."""
-    t = MagicMock()
-    t.id = template_id
-    t.title = title
-    t.type = "strength"
-    t.primary_muscle_group = "Chest"
-    t.secondary_muscle_groups = ["Triceps", "Front Delts"]
-    t.is_custom = False
-    return t
+def _raw_template(template_id: str, title: str) -> dict[str, Any]:
+    """Create a raw API template dict (matching JSON response shape)."""
+    return {
+        "id": template_id,
+        "title": title,
+        "type": "strength",
+        "primary_muscle_group": "Chest",
+        "secondary_muscle_groups": ["Triceps", "Front Delts"],
+        "is_custom": False,
+    }

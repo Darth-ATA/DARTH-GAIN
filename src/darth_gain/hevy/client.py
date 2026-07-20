@@ -118,6 +118,11 @@ class HevyClient:
     def get_exercise_templates(self) -> list[dict[str, Any]]:
         """Fetch all exercise templates across all pages.
 
+        Uses the SDK's raw HTTP client directly instead of its pydantic-
+        validated endpoint. This avoids crashes when the Hevy API adds new
+        enum values (e.g. ``floors_duration``, ``steps_duration``) that the
+        SDK hasn't caught up with yet.
+
         Paginates through every page (page_size=100) and returns the
         aggregated list of template dicts in repo-compatible format.
 
@@ -128,22 +133,51 @@ class HevyClient:
         """
         templates: list[dict[str, Any]] = []
 
-        resp = self._client.exercise_templates.get_exercise_templates(
-            page=1, page_size=100
-        )
-        for t in resp.exercise_templates:
-            templates.append(_template_to_dict(t))
+        data = self._fetch_templates_page(page=1, page_size=100)
+        for t in data["exercise_templates"]:
+            templates.append(_raw_template_to_dict(t))
 
         page = 2
-        while page <= resp.page_count:
-            resp = self._client.exercise_templates.get_exercise_templates(
-                page=page, page_size=100
-            )
-            for t in resp.exercise_templates:
-                templates.append(_template_to_dict(t))
+        while page <= data["page_count"]:
+            data = self._fetch_templates_page(page=page, page_size=100)
+            for t in data["exercise_templates"]:
+                templates.append(_raw_template_to_dict(t))
             page += 1
 
         return templates
+
+    def _fetch_templates_page(
+        self, page: int, page_size: int = 100
+    ) -> dict[str, Any]:
+        """Fetch a single page of exercise templates as raw JSON dict.
+
+        Bypasses the SDK's pydantic model to avoid validation errors on
+        new API response fields.
+
+        Raises:
+            hevy_api_wrapper.exceptions.HevyAPIError: On non-2xx status.
+        """
+        from hevy_api_wrapper.endpoints.exercise_templates import raise_for_status
+
+        resp = self._client._request(
+            "GET",
+            "/v1/exercise_templates",
+            params={"page": page, "pageSize": page_size},
+        )
+        data: dict[str, Any] = resp.json()
+        if resp.status_code >= 400:
+            message = (
+                data.get("message") if isinstance(data, dict) else None
+            ) or resp.text
+            code = data.get("code") if isinstance(data, dict) else None
+            raise_for_status(
+                status_code=resp.status_code,
+                message=message,
+                error_code=code,
+                details=data,
+                request_id=None,
+            )
+        return data
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +231,23 @@ def _workout_to_dict(workout: Any) -> dict[str, Any]:
     }
 
 
+def _raw_template_to_dict(t: dict[str, Any]) -> dict[str, Any]:
+    """Convert a raw API template dict to repo-compatible format.
+
+    Works directly from the JSON response (no pydantic models) so new
+    API fields don't cause validation errors.
+    """
+    return {
+        "id": t["id"],
+        "title": t.get("title", ""),
+        "type": t.get("type", ""),
+        "primary_muscle_group": t.get("primary_muscle_group", ""),
+        "other_muscle_groups": json.dumps(t.get("secondary_muscle_groups", [])),
+        "equipment": "",
+        "is_custom": int(t.get("is_custom", False)),
+    }
+
+
 def _template_to_dict(template: Any) -> dict[str, Any]:
     """Convert a SDK ExerciseTemplate model to a plain dict.
 
@@ -207,6 +258,11 @@ def _template_to_dict(template: Any) -> dict[str, Any]:
     * ``is_custom`` (bool) → ``is_custom`` (int)
     * ``type`` (enum) → string value
     * ``primary_muscle_group`` (enum) → string value
+
+    Note:
+        Prefer :func:`_raw_template_to_dict` for new code. This function
+        is kept for backward compatibility with existing tests that mock
+        the SDK model layer.
     """
     return {
         "id": template.id,

@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from darth_gain.config import Config
 from darth_gain.db.repo import (
@@ -13,7 +12,6 @@ from darth_gain.db.repo import (
     get_template_count,
     get_templates,
     set_sync_meta,
-    soft_delete_workout,
     upsert_templates,
     upsert_workout,
 )
