@@ -174,3 +174,104 @@ class TestCreateTables:
         indexes = {row[0] for row in cursor.fetchall()}
         matching = [i for i in indexes if "workout_id" in i]
         assert matching, "No index on exercises.workout_id found"
+
+    # ------------------------------------------------------------------
+    # progression_config
+    # ------------------------------------------------------------------
+
+    def test_progression_config_table_exists(
+        self, in_memory_conn: sqlite3.Connection
+    ) -> None:
+        """progression_config table is created with correct columns."""
+        cursor = in_memory_conn.execute("PRAGMA table_info(progression_config)")
+        cols = {row[1]: row[2] for row in cursor.fetchall()}
+        assert cols["exercise_template_id"] == "TEXT"
+        assert cols["rep_min"] == "INTEGER"
+        assert cols["rep_max"] == "INTEGER"
+        assert cols["weight_increment"] == "REAL"
+        assert cols["enabled"] == "INTEGER"
+
+    def test_progression_config_pk_is_exercise_template_id(
+        self, in_memory_conn: sqlite3.Connection
+    ) -> None:
+        """progression_config.exercise_template_id is the primary key."""
+        cursor = in_memory_conn.execute("PRAGMA table_info(progression_config)")
+        pk_cols = [row[1] for row in cursor.fetchall() if row[5] == 1]
+        assert pk_cols == ["exercise_template_id"]
+
+    def test_progression_config_defaults(
+        self, in_memory_conn: sqlite3.Connection
+    ) -> None:
+        """progression_config columns have correct default values."""
+        cursor = in_memory_conn.execute("PRAGMA table_info(progression_config)")
+        defaults = {row[1]: row[4] for row in cursor.fetchall()}
+        assert defaults["rep_min"] == "8"
+        assert defaults["rep_max"] == "12"
+        assert defaults["weight_increment"] == "2.5"
+        assert defaults["enabled"] == "1"
+
+    # ------------------------------------------------------------------
+    # progression_history
+    # ------------------------------------------------------------------
+
+    def test_progression_history_table_exists(
+        self, in_memory_conn: sqlite3.Connection
+    ) -> None:
+        """progression_history table is created with correct columns."""
+        cursor = in_memory_conn.execute("PRAGMA table_info(progression_history)")
+        cols = {row[1]: row[2] for row in cursor.fetchall()}
+        assert cols["id"] == "INTEGER"
+        assert cols["exercise_template_id"] == "TEXT"
+        assert cols["checked_at"] == "TEXT"
+        assert cols["status"] == "TEXT"
+        assert cols["current_weight_kg"] == "REAL"
+        assert cols["recommended_weight_kg"] == "REAL"
+        assert cols["details"] == "TEXT"
+
+    def test_progression_history_pk_is_id(
+        self, in_memory_conn: sqlite3.Connection
+    ) -> None:
+        """progression_history.id is the primary key."""
+        cursor = in_memory_conn.execute("PRAGMA table_info(progression_history)")
+        pk_cols = [row[1] for row in cursor.fetchall() if row[5] == 1]
+        assert pk_cols == ["id"]
+
+    def test_progression_history_auto_increment(
+        self, in_memory_conn: sqlite3.Connection
+    ) -> None:
+        """progression_history.id is autoincrement."""
+        cursor = in_memory_conn.execute("PRAGMA table_info(progression_history)")
+        id_row = [row for row in cursor.fetchall() if row[1] == "id"][0]
+        # Column 6 (index 6) is `pk` — actually sqlite_master table_info
+        # returns: cid, name, type, notnull, dflt_value, pk
+        # Auto-increment is implied by INTEGER PRIMARY KEY, not directly
+        # exposed via PRAGMA. We verify by checking PK=True and type=INTEGER.
+        assert id_row[2] == "INTEGER"  # type
+        assert id_row[5] == 1  # pk
+
+    def test_progression_history_index_on_template_id(
+        self, in_memory_conn: sqlite3.Connection
+    ) -> None:
+        """Index exists on progression_history.exercise_template_id."""
+        cursor = in_memory_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='progression_history'"
+        )
+        indexes = {row[0] for row in cursor.fetchall()}
+        matching = [i for i in indexes if "template" in i.lower()]
+        assert matching, "No index on progression_history.exercise_template_id found"
+
+    # ------------------------------------------------------------------
+    # Idempotency with new tables
+    # ------------------------------------------------------------------
+
+    def test_create_tables_idempotent_includes_progression(
+        self, in_memory_conn: sqlite3.Connection
+    ) -> None:
+        """Idempotent create_tables includes progression tables."""
+        create_tables(in_memory_conn)  # second call
+        cursor = in_memory_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
+        tables = {row[0] for row in cursor.fetchall()}
+        assert "progression_config" in tables
+        assert "progression_history" in tables
