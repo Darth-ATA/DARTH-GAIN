@@ -47,19 +47,21 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Dashboard (PR B)
 
-- [ ] 3.1 RED: `tests/test_web_dashboard.py` — list, empty/error states, grouping
-- [ ] 3.2 Create `routers/dashboard.py` — `GET /` with engine check + group
-- [ ] 3.3 Create `templates/dashboard.html` — grouped list, sort/filter, HTMX
-- [ ] 3.4 Create `partials/status_badge.html` + `exercise_card.html`
-- [ ] 3.5 GREEN: Pass RED tests
+- [x] 3.1 RED: `tests/test_web_dashboard.py` — list, empty/error states, grouping
+- [x] 3.2 Create `routers/dashboard.py` — `GET /` with engine check + group
+- [x] 3.3 Create `templates/dashboard.html` — grouped list, sort/filter, HTMX
+- [x] 3.4 Create `partials/status_badge.html` + `exercise_card.html`
+- [x] 3.5 GREEN: Pass RED tests
 
 ## Phase 4: Detail & Config (PR C)
 
-- [ ] 4.1 RED: `tests/test_web_exercises.py` — detail, 404, config PUT (valid/invalid)
-- [ ] 4.2 Create `routers/exercises.py` — `GET/PUT /exercises/{id}` + validation
-- [ ] 4.3 Create `templates/exercise_detail.html` — history + config + back link
-- [ ] 4.4 Create `partials/config_form.html` — HTMX inline editor
-- [ ] 4.5 GREEN: Pass RED tests
+- [x] 4.1 RED: `tests/test_web_exercises.py` — detail, 404, config PUT (valid/invalid)
+- [x] 4.2 Create `routers/exercises.py` — `GET/PUT /exercises/{id}` + validation
+- [x] 4.3 Create `templates/exercise_detail.html` — history + config + back link
+- [x] 4.4 Create `partials/config_form.html` — HTMX inline editor
+- [x] 4.5 GREEN: Pass RED tests
+- [x] 4.6 Update `app.py` — register exercises router
+- [x] 4.7 Update `app.css` — detail page styles, form styles, history table
 
 ## Phase 5: Multi-User (PR D)
 

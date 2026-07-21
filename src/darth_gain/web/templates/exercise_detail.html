@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}DARTH-GAIN — {{ template.title }}{% endblock %}
+
+{% block content %}
+<div class="detail-header">
+    <a href="/" class="back-link">&larr; Back to Dashboard</a>
+</div>
+
+<div class="detail-card">
+    <div class="detail-card-header">
+        <h1 class="detail-title">{{ template.title }}</h1>
+        <div class="detail-meta">
+            {% if template.primary_muscle_group %}
+            <span class="detail-muscle">{{ template.primary_muscle_group }}</span>
+            {% endif %}
+            {% if template.type %}
+            <span class="detail-type">{{ template.type }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="detail-status-section">
+        <h2 class="section-title">Current Status</h2>
+        <div class="status-summary">
+            <div class="status-summary-item">
+                <span class="stat-label">Status</span>
+            <span class="status-badge status-{{ status_str }}">
+                {%- if status_str == "progress" -%}
+                    PROGRESS
+                {%- elif status_str == "maintain" -%}
+                    MAINTAIN
+                {%- elif status_str == "skipped" -%}
+                    SKIPPED
+                {%- elif status_str == "insufficient_data" -%}
+                    INSUFFICIENT DATA
+                {%- else -%}
+                    {{ status_str | upper }}
+                {%- endif -%}
+            </span>
+            </div>
+            {% if status.current_weight_kg is not none %}
+            <div class="status-summary-item">
+                <span class="stat-label">Working Weight</span>
+                <span class="stat-value">{{ status.current_weight_kg }} kg</span>
+            </div>
+            {% endif %}
+            <div class="status-summary-item">
+                <span class="stat-label">Rep Range</span>
+                <span class="stat-value">{{ status.rep_range[0] }}&ndash;{{ status.rep_range[1] }} reps</span>
+            </div>
+            {% if status.recommendation %}
+            <div class="status-summary-item status-summary-full">
+                <span class="stat-label">Recommendation</span>
+                <span class="stat-value stat-value-accent">{{ status.recommendation }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="detail-config-section">
+        <h2 class="section-title">Configuration</h2>
+        <div id="config-editor">
+            {% include "partials/config_form.html" %}
+        </div>
+    </div>
+</div>
+
+<div class="detail-history-section">
+    <h2 class="section-title">Progression History</h2>
+
+    {% if history %}
+    <div class="history-table-wrapper">
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Current Weight</th>
+                    <th>Recommended Weight</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in history %}
+                <tr class="history-row">
+                    <td class="history-date">{{ entry.checked_at[:10] if entry.checked_at else "—" }}</td>
+                    <td>
+                        <span class="status-badge status-{{ entry.status }}">
+                            {{ entry.status | upper }}
+                        </span>
+                    </td>
+                    <td class="history-weight">
+                        {{ entry.current_weight_kg ~ " kg" if entry.current_weight_kg is not none else "—" }}
+                    </td>
+                    <td class="history-weight">
+                        {{ entry.recommended_weight_kg ~ " kg" if entry.recommended_weight_kg is not none else "—" }}
+                    </td>
+                    <td class="history-details">
+                        {% if entry.details %}
+                        <details class="history-details-toggle">
+                            <summary>View</summary>
+                            <pre class="details-json">{{ entry.details | tojson(indent=2) if entry.details is mapping else entry.details }}</pre>
+                        </details>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# Mobile card view for history #}
+    <div class="history-cards">
+        {% for entry in history %}
+        <div class="history-card">
+            <div class="history-card-header">
+                <span class="history-card-date">{{ entry.checked_at[:10] if entry.checked_at else "—" }}</span>
+                <span class="status-badge status-{{ entry.status }}">{{ entry.status | upper }}</span>
+            </div>
+            <div class="history-card-body">
+                <div class="history-card-stat">
+                    <span class="stat-label">Current Weight</span>
+                    <span class="stat-value">{{ entry.current_weight_kg ~ " kg" if entry.current_weight_kg is not none else "—" }}</span>
+                </div>
+                <div class="history-card-stat">
+                    <span class="stat-label">Recommended</span>
+                    <span class="stat-value">{{ entry.recommended_weight_kg ~ " kg" if entry.recommended_weight_kg is not none else "—" }}</span>
+                </div>
+                {% if entry.details %}
+                <div class="history-card-details">
+                    <details>
+                        <summary>Details</summary>
+                        <pre class="details-json">{{ entry.details | tojson(indent=2) if entry.details is mapping else entry.details }}</pre>
+                    </details>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">&#128202;</div>
+        <h2>No progression history yet</h2>
+        <p class="text-muted">History will appear here after progression checks run for this exercise.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
