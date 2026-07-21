@@ -1,0 +1,13 @@
+<span class="status-badge status-{{ status }}">
+    {%- if status == "progress" -%}
+        PROGRESS
+    {%- elif status == "maintain" -%}
+        MAINTAIN
+    {%- elif status == "skipped" -%}
+        SKIPPED
+    {%- elif status == "insufficient_data" -%}
+        INSUFFICIENT DATA
+    {%- else -%}
+        {{ status | upper }}
+    {%- endif -%}
+</span>

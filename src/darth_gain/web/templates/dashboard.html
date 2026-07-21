@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}DARTH-GAIN — Dashboard{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Dashboard</h1>
+
+{% if error %}
+<div class="alert alert-error">
+    <strong>Unable to load exercise data</strong>
+    <p>{{ error }}</p>
+    <p>Try again later. If the problem persists, check your database.</p>
+</div>
+{% elif empty %}
+<div class="empty-state">
+    <div class="empty-state-icon">&#127947;</div>
+    <h2>No exercises found</h2>
+    <p class="text-muted">No exercise data yet — sync your Hevy account to get started.</p>
+</div>
+{% else %}
+<div class="dashboard-controls">
+    <button class="btn btn-secondary"
+            hx-get="/"
+            hx-target=".dashboard-groups"
+            hx-swap="innerHTML"
+            hx-indicator="#loading-spinner">
+        &#8635; Refresh
+    </button>
+    <div id="loading-spinner" class="htmx-indicator">
+        <span class="spinner"></span> Checking progression...
+    </div>
+</div>
+
+<div class="dashboard-groups">
+    {% for status, cards in groups.items() %}
+    <section class="status-group status-group-{{ status }}">
+        <h2 class="group-header">
+            {% include "partials/status_badge.html" %}
+            <span class="group-count">({{ cards | length }})</span>
+        </h2>
+        <div class="exercise-grid">
+            {% for card in cards %}
+                {% with card = card %}
+                {% include "partials/exercise_card.html" %}
+                {% endwith %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
