@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DARTH-GAIN{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"
+            integrity="sha384-HGfztofotPfshhWFM0RLAi0BBHMN41R0E1gQNINH6JhCZPwP3J3hRs0S0s1KUjI"
+            crossorigin="anonymous"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">DARTH-GAIN</a>
+            <div class="nav-links">
+                {% if request.cookies.get('dg_session') %}
+                <a href="/logout" class="nav-link">Logout</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
