@@ -1,0 +1,37 @@
+{% with status = card.status %}
+<div class="exercise-card" id="exercise-{{ card.template_id }}">
+    <div class="card-header">
+        <h3 class="card-title">
+            <a href="/exercises/{{ card.template_id }}">{{ card.title }}</a>
+        </h3>
+        <div class="card-badge">
+            {% include "partials/status_badge.html" %}
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="card-stat">
+            <span class="stat-label">Muscle Group</span>
+            <span class="stat-value">{{ card.muscle_group }}</span>
+        </div>
+        {% if card.current_weight is not none %}
+        <div class="card-stat">
+            <span class="stat-label">Current Weight</span>
+            <span class="stat-value">{{ card.current_weight }} kg</span>
+        </div>
+        {% endif %}
+        <div class="card-stat">
+            <span class="stat-label">Rep Range</span>
+            <span class="stat-value">{{ card.rep_min }}–{{ card.rep_max }} reps</span>
+        </div>
+        {% if card.status == "progress" and card.current_weight is not none %}
+        <div class="card-stat card-stat-recommended">
+            <span class="stat-label">Next Weight</span>
+            <span class="stat-value stat-value-accent">{{ card.current_weight + 2.5 }} kg</span>
+        </div>
+        {% endif %}
+    </div>
+    {% if card.error %}
+    <div class="card-error">{{ card.error }}</div>
+    {% endif %}
+</div>
+{% endwith %}
