@@ -89,6 +89,14 @@ CREATE TABLE IF NOT EXISTS progression_history (
 
 CREATE INDEX IF NOT EXISTS idx_progression_history_template
     ON progression_history(exercise_template_id);
+
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    hevy_api_key  TEXT,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 
@@ -108,6 +116,7 @@ def create_engine(db_path: str) -> sqlite3.Connection:
         A ``sqlite3.Connection`` with foreign keys enabled.
     """
     conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
     return conn
