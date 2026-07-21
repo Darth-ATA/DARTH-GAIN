@@ -41,9 +41,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Docker (PR A cont.)
 
-- [ ] 2.1 Create `Dockerfile` — 3.13-slim, `pip install .[web]`, uvicorn
-- [ ] 2.2 Create `docker-compose.yml` — web service, `/data/` volume, env
-- [ ] 2.3 Verify `docker compose up` + health endpoint 200
+- [x] 2.1 Create `Dockerfile` — 3.13-slim, `pip install .[web]`, uvicorn
+- [x] 2.2 Create `docker-compose.yml` — web service, `/data/` volume, env
+- [x] 2.3 Verify `docker compose up` + health endpoint 200
 
 ## Phase 3: Dashboard (PR B)
 

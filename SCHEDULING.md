@@ -195,3 +195,69 @@ When `darth-gain ingest` runs from cron (no TTY attached):
 5. Errors are written to stderr (captured by cron's mail mechanism)
 
 This design ensures clean log files without progress bar garbage.
+
+---
+
+## Web Dashboard Deployment
+
+The DARTH-GAIN web dashboard runs as a Docker container alongside your
+existing cron setup.
+
+### Prerequisites
+
+- Docker and Docker Compose (v2) installed
+- Port 8000 available on the host
+
+### Quick Start
+
+```bash
+# Build and start the web dashboard
+docker compose up -d
+
+# Check logs
+docker compose logs -f
+
+# Stop
+docker compose down
+```
+
+### Configuration
+
+Set the session signing key via the `DARTH_GAIN_SECRET` environment variable.
+Without it, the app falls back to `dev-secret` (insecure — use a strong secret
+in production):
+
+```bash
+export DARTH_GAIN_SECRET="your-strong-secret-here"
+docker compose up -d
+```
+
+### Data Persistence
+
+User databases live in `./data/` on the host, mounted at `/data/` inside the
+container. This directory contains:
+
+- `users.db` — shared user authentication database
+- `user_{id}/` — per-user workout databases
+
+This is the same directory that the multi-user cron scripts expect.
+
+### Healthcheck
+
+The container includes a Docker healthcheck that pings `GET /health` every
+30 seconds. Verify container health with:
+
+```bash
+docker ps --filter "name=darth-gain" --format "table {{.Names}}\t{{.Status}}"
+```
+
+### Access
+
+The dashboard is available at `http://<host-ip>:8000`. Log in with a user
+created via the registration page or seeded in `users.db`.
+
+### Running with Cron
+
+The cron ingest (`darth-gain ingest`) continues to work unchanged alongside the
+web container. Data written by cron (in `/data/user_{id}/workouts.db`) is read
+by the web dashboard — no migration needed for existing single-user setups.
