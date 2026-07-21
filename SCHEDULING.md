@@ -261,3 +261,46 @@ created via the registration page or seeded in `users.db`.
 The cron ingest (`darth-gain ingest`) continues to work unchanged alongside the
 web container. Data written by cron (in `/data/user_{id}/workouts.db`) is read
 by the web dashboard — no migration needed for existing single-user setups.
+
+## Multi-User Cron Sync
+
+With multiple users, the single-user `darth-gain ingest` command no longer
+suffices (it reads a single DB path from `platformdirs`). Use the
+`scripts/cron-sync-all.py` script instead:
+
+```bash
+# Install in crontab (daily at 6 AM, with logging)
+echo '0 6 * * * /path/to/cron-sync-all.py >> /var/log/darth-gain-sync.log 2>&1' | crontab -
+```
+
+The script:
+
+1. Opens `/data/users.db` and iterates all users with a `hevy_api_key`.
+2. For each user, opens their per-user database at `/data/user_{id}/workouts.db`.
+3. Calls `darth-gain.hevy.sync.sync()` with the user's API key and DB path.
+4. Logs per-user progress (updated, deleted, errors) to stdout.
+
+### Environment
+
+| Variable | Default | Description |
+|---|---|---|
+| `DARTH_GAIN_DATA_DIR` | `/data` | Root directory containing `users.db` and `user_*/` directories |
+
+### Migration
+
+If you were previously running `darth-gain ingest` as a single user:
+
+1. Register your user via the web dashboard (or use `scripts/migrate-to-multi-user.py`).
+2. Set the user's `hevy_api_key` in `users.db` (via SQL or the web form when implemented).
+3. Replace the cron entry:
+
+   ```
+   # Old (single-user):
+   0 6 * * * /path/to/darth-gain ingest
+
+   # New (multi-user):
+   0 6 * * * /path/to/cron-sync-all.py >> /var/log/darth-gain-sync.log 2>&1
+   ```
+
+4. Remove the old `HEVY_API_KEY` from cron's environment — each user's key is
+   now stored in `users.db`.
