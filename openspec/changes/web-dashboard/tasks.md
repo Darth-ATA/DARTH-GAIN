@@ -65,9 +65,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 5: Multi-User (PR D)
 
-- [ ] 5.1 RED: `tests/test_multi_user.py` — registration isolation, data separation
-- [ ] 5.2 Add `POST /register` in `routers/auth.py` + `register.html`
-- [ ] 5.3 Create `scripts/cron-sync-all.py` — iterate users, ingest per user
-- [ ] 5.4 Create `scripts/migrate-to-multi-user.py` — legacy DB → `/data/user_1/`
-- [ ] 5.5 GREEN: Pass RED tests
-- [ ] 5.6 Create `SCHEDULING.md` — cron setup docs
+- [x] 5.1 RED: `tests/test_multi_user.py` — registration isolation, data separation
+- [x] 5.2 Add `POST /register` in `routers/auth.py` + `register.html`
+- [x] 5.3 Create `scripts/cron-sync-all.py` — iterate users, ingest per user
+- [x] 5.4 Create `scripts/migrate-to-multi-user.py` — legacy DB → `/data/user_1/`
+- [x] 5.5 GREEN: Pass RED tests (18/18)
+- [x] 5.6 Update `SCHEDULING.md` — multi-user cron setup docs
