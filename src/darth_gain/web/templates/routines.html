@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}DARTH-GAIN — Routines{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Routines</h1>
+
+{% if error %}
+<div class="alert alert-error">
+    <strong>Unable to load routine data</strong>
+    <p>{{ error }}</p>
+    <p>Try again later. If the problem persists, check your database.</p>
+</div>
+{% elif empty %}
+<div class="empty-state">
+    <div class="empty-state-icon">&#128170;</div>
+    <h2>No routines found</h2>
+    <p class="text-muted">No exercise data yet — sync your Hevy account to get started.</p>
+</div>
+{% else %}
+<div class="routine-groups">
+    {% for group in routine_groups %}
+    <section class="routine-group">
+        <h2 class="group-header">
+            {{ group.routine_title }}
+            <span class="group-count">({{ group.exercise_count }})</span>
+        </h2>
+        <div class="exercise-grid">
+            {% for card in group.exercises %}
+                {% with card = card %}
+                {% include "partials/exercise_card.html" %}
+                {% endwith %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+
+    {% if uncategorized %}
+    <section class="routine-group routine-group-uncategorized">
+        <h2 class="group-header">
+            Uncategorized
+            <span class="group-count">({{ uncategorized.exercise_count }})</span>
+        </h2>
+        <div class="exercise-grid">
+            {% for card in uncategorized.exercises %}
+                {% with card = card %}
+                {% include "partials/exercise_card.html" %}
+                {% endwith %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
