@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -19,6 +20,15 @@ from darth_gain.web.deps import require_user
 
 from ..templates import render_template
 from .dashboard import _build_exercise_card, _error_card
+
+
+def _format_date(iso_str: str) -> str:
+    """Format an ISO 8601 timestamp to a short readable date."""
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        return dt.strftime("%d %b %Y")
+    except (ValueError, AttributeError):
+        return ""
 
 router = APIRouter()
 
@@ -137,6 +147,7 @@ async def routines_view(
                     "exercise_count": len(cards),
                     "exercises": cards,
                     "last_done": last_done.get(routine["id"], ""),
+                    "last_done_formatted": _format_date(last_done.get(routine["id"], "")),
                 })
 
         # --- Sort by most recently done (descending) --------------------------------

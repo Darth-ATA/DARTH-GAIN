@@ -24,6 +24,9 @@
         <h2 class="group-header">
             {{ group.routine_title }}
             <span class="group-count">({{ group.exercise_count }})</span>
+            {% if group.last_done_formatted %}
+            <span class="group-last-done">— last done {{ group.last_done_formatted }}</span>
+            {% endif %}
         </h2>
         <div class="exercise-grid">
             {% for card in group.exercises %}
