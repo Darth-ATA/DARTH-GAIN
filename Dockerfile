@@ -7,6 +7,7 @@ WORKDIR /build
 # Copy only what pip needs to install the package
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
+COPY scripts/ ./scripts/
 
 # Install the package with web dependencies
 RUN pip install --no-cache-dir .[web]
