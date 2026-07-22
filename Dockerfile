@@ -19,6 +19,7 @@ WORKDIR /app
 
 # Copy installed packages from builder (avoid pip cache with --no-cache-dir)
 COPY --from=builder /usr/local/ /usr/local/
+COPY --from=builder /build/scripts/ /app/scripts/
 
 # Install curl for Docker healthchecks
 RUN apt-get update && apt-get install -y --no-install-recommends curl && \
