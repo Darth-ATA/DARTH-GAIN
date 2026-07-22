@@ -82,6 +82,16 @@ async def routines_view(
         # --- Get all routines -------------------------------------------------------
         routines = get_routines(conn)
 
+        # --- Get latest workout date per routine ------------------------------------
+        last_done: dict[str, str] = {}
+        for row in conn.execute(
+            "SELECT w.routine_id, MAX(w.start_time) AS last_done "
+            "FROM workouts w "
+            "WHERE w.routine_id IS NOT NULL "
+            "GROUP BY w.routine_id"
+        ).fetchall():
+            last_done[row["routine_id"]] = row["last_done"]
+
         # --- Process routines -------------------------------------------------------
         engine = ProgressionEngine(conn)
         routine_groups: list[dict[str, Any]] = []
@@ -126,7 +136,11 @@ async def routines_view(
                     "routine_title": routine["title"],
                     "exercise_count": len(cards),
                     "exercises": cards,
+                    "last_done": last_done.get(routine["id"], ""),
                 })
+
+        # --- Sort by most recently done (descending) --------------------------------
+        routine_groups.sort(key=lambda g: g["last_done"], reverse=True)
 
         # --- Uncategorized (null routine_id) ----------------------------------------
         uncategorized: dict[str, Any] | None = None
