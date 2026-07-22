@@ -414,12 +414,60 @@ class TestGetEvents:
 class TestGetExerciseTemplates:
     """HevyClient.get_exercise_templates fetches all templates with pagination."""
 
+    @staticmethod
+    def _mock_httpx_response(json_data: dict) -> MagicMock:
+        """Build a mock httpx response with .json() method."""
+        resp = MagicMock()
+        resp.json.return_value = json_data
+        resp.raise_for_status.return_value = None
+        return resp
+
+    @staticmethod
+    def _raw_templates_page(
+        templates: list[dict],
+        page: int = 1,
+        page_count: int = 1,
+    ) -> dict:
+        """Return a dict that simulates the raw /v1/exercise_templates JSON."""
+        return {
+            "page": page,
+            "page_count": page_count,
+            "exercise_templates": templates,
+        }
+
+    @staticmethod
+    def _raw_template(
+        template_id: str,
+        title: str,
+    ) -> dict:
+        """Return a raw exercise template dict (as returned by Hevy API)."""
+        return {
+            "id": template_id,
+            "title": title,
+            "type": "strength",
+            "primary_muscle_group": "Chest",
+            "secondary_muscle_groups": ["Triceps", "Front Delts"],
+            "is_custom": False,
+        }
+
+    def _setup_mock(
+        self, mock_sdk: MagicMock, mock_httpx: MagicMock
+    ) -> None:
+        """Configure mock SDK client for template tests."""
+        mock_sdk.return_value._client = mock_httpx
+        mock_sdk.return_value.config.base_url = "https://api.hevyapp.com"
+        mock_sdk.return_value._build_headers.return_value = {"api-key": "test"}
+
     def test_fetches_templates(self) -> None:
-        """get_exercise_templates calls SDK and returns list of dicts."""
+        """get_exercise_templates returns list of template dicts."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.return_value = (
-                _sdk_page_with_templates([_sdk_template("t001", "Bench Press")])
+            mock_httpx = MagicMock()
+            mock_httpx.get.return_value = self._mock_httpx_response(
+                self._raw_templates_page(
+                    [self._raw_template("t001", "Bench Press")]
+                )
             )
+            self._setup_mock(mock_sdk, mock_httpx)
             client = HevyClient(api_key="test-key")
 
             result = client.get_exercise_templates()
@@ -430,11 +478,13 @@ class TestGetExerciseTemplates:
     def test_converts_template_fields(self) -> None:
         """Template dict has fields expected by repo.upsert_templates."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.return_value = (
-                _sdk_page_with_templates(
-                    [_sdk_template("t001", "Bench Press")]
+            mock_httpx = MagicMock()
+            mock_httpx.get.return_value = self._mock_httpx_response(
+                self._raw_templates_page(
+                    [self._raw_template("t001", "Bench Press")]
                 )
             )
+            self._setup_mock(mock_sdk, mock_httpx)
             client = HevyClient(api_key="test-key")
 
             result = client.get_exercise_templates()
@@ -451,22 +501,24 @@ class TestGetExerciseTemplates:
     def test_paginates_multiple_pages(self) -> None:
         """get_exercise_templates fetches all pages and returns merged list."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            # First call returns page 1 of 2
-            page1 = _sdk_page_with_templates(
-                [_sdk_template("t001", "Bench Press")],
-                page=1,
-                page_count=2,
-            )
-            # Second call returns page 2 of 2
-            page2 = _sdk_page_with_templates(
-                [_sdk_template("t002", "Overhead Press")],
-                page=2,
-                page_count=2,
-            )
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.side_effect = [
-                page1,
-                page2,
+            mock_httpx = MagicMock()
+            mock_httpx.get.side_effect = [
+                self._mock_httpx_response(
+                    self._raw_templates_page(
+                        [self._raw_template("t001", "Bench Press")],
+                        page=1,
+                        page_count=2,
+                    )
+                ),
+                self._mock_httpx_response(
+                    self._raw_templates_page(
+                        [self._raw_template("t002", "Overhead Press")],
+                        page=2,
+                        page_count=2,
+                    )
+                ),
             ]
+            self._setup_mock(mock_sdk, mock_httpx)
             client = HevyClient(api_key="test-key")
 
             result = client.get_exercise_templates()
@@ -474,14 +526,15 @@ class TestGetExerciseTemplates:
             assert len(result) == 2
             assert result[0]["id"] == "t001"
             assert result[1]["id"] == "t002"
-            assert mock_sdk.return_value.exercise_templates.get_exercise_templates.call_count == 2
 
     def test_empty_templates_list(self) -> None:
         """An empty templates response returns an empty list."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.return_value = (
-                _sdk_page_with_templates([], page=1, page_count=1)
+            mock_httpx = MagicMock()
+            mock_httpx.get.return_value = self._mock_httpx_response(
+                self._raw_templates_page([], page=1, page_count=1)
             )
+            self._setup_mock(mock_sdk, mock_httpx)
             client = HevyClient(api_key="test-key")
 
             result = client.get_exercise_templates()
@@ -491,46 +544,18 @@ class TestGetExerciseTemplates:
     def test_single_page_no_extra_call(self) -> None:
         """When page_count is 1, only one API call is made."""
         with patch("darth_gain.hevy.client.SdkClient") as mock_sdk:
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.return_value = (
-                _sdk_page_with_templates(
-                    [_sdk_template("t001", "Bench Press")],
+            mock_httpx = MagicMock()
+            mock_httpx.get.return_value = self._mock_httpx_response(
+                self._raw_templates_page(
+                    [self._raw_template("t001", "Bench Press")],
                     page=1,
                     page_count=1,
                 )
             )
+            self._setup_mock(mock_sdk, mock_httpx)
             client = HevyClient(api_key="test-key")
 
             result = client.get_exercise_templates()
 
             assert len(result) == 1
-            mock_sdk.return_value.exercise_templates.get_exercise_templates.assert_called_once()
-
-
-# ===========================================================================
-# Helper factories — create SDK mock responses
-# ===========================================================================
-
-
-def _sdk_page_with_templates(
-    templates: list,
-    page: int = 1,
-    page_count: int = 1,
-) -> MagicMock:
-    """Create a mock PaginatedExerciseTemplates SDK response."""
-    resp = MagicMock()
-    resp.page = page
-    resp.page_count = page_count
-    resp.exercise_templates = templates
-    return resp
-
-
-def _sdk_template(template_id: str, title: str) -> MagicMock:
-    """Create a mock ExerciseTemplate SDK model."""
-    t = MagicMock()
-    t.id = template_id
-    t.title = title
-    t.type = "strength"
-    t.primary_muscle_group = "Chest"
-    t.secondary_muscle_groups = ["Triceps", "Front Delts"]
-    t.is_custom = False
-    return t
+            mock_httpx.get.assert_called_once()

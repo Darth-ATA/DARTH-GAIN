@@ -132,26 +132,37 @@ class HevyClient:
         Paginates through every page (page_size=100) and returns the
         aggregated list of template dicts in repo-compatible format.
 
+        Bypasses SDK pydantic models to avoid ValidationError on new
+        exercise types (``floors_duration``, ``steps_duration``, etc.)
+        that the SDK enum doesn't include.
+
         Returns:
             List of template dicts with keys ``id``, ``title``, ``type``,
             ``primary_muscle_group``, ``other_muscle_groups`` (JSON string),
             ``equipment``, and ``is_custom``.
         """
         templates: list[dict[str, Any]] = []
+        base_url = f"{self._client.config.base_url}/v1/exercise_templates"
+        headers = self._client._build_headers()
 
-        resp = self._client.exercise_templates.get_exercise_templates(
-            page=1, page_size=100
-        )
-        for t in resp.exercise_templates:
-            templates.append(_template_to_dict(t))
+        page = 1
+        page_count = 1
 
-        page = 2
-        while page <= resp.page_count:
-            resp = self._client.exercise_templates.get_exercise_templates(
-                page=page, page_size=100
+        while page <= page_count:
+            raw = self._client._client.get(
+                base_url,
+                headers=headers,
+                params={"page": page, "pageSize": 100},
             )
-            for t in resp.exercise_templates:
-                templates.append(_template_to_dict(t))
+            raw.raise_for_status()
+            data = raw.json()
+
+            if page_count == 1 and page == 1:
+                page_count = data.get("page_count", 1)
+
+            for t in data.get("exercise_templates", []):
+                templates.append(_raw_template_to_dict(t))
+
             page += 1
 
         return templates
@@ -319,4 +330,24 @@ def _template_to_dict(template: Any) -> dict[str, Any]:
         "other_muscle_groups": json.dumps(template.secondary_muscle_groups),
         "equipment": "",
         "is_custom": int(template.is_custom),
+    }
+
+
+def _raw_template_to_dict(template: dict[str, Any]) -> dict[str, Any]:
+    """Convert a raw API exercise template dict to repo-compatible format.
+
+    Mirrors ``_template_to_dict`` but works on raw JSON dicts instead of
+    SDK pydantic models — avoids ValidationError on new exercise types
+    that the SDK enum doesn't include.
+    """
+    return {
+        "id": template.get("id", ""),
+        "title": template.get("title", ""),
+        "type": template.get("type", ""),
+        "primary_muscle_group": template.get("primary_muscle_group", ""),
+        "other_muscle_groups": json.dumps(
+            template.get("secondary_muscle_groups", [])
+        ),
+        "equipment": "",
+        "is_custom": int(template.get("is_custom", False)),
     }
