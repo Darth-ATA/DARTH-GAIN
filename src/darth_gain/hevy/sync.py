@@ -15,10 +15,12 @@ from typing import Any
 
 from darth_gain.config import Config
 from darth_gain.db.repo import (
+    get_routines,
     get_sync_meta,
     get_template_count,
     set_sync_meta,
     soft_delete_workout,
+    upsert_routines,
     upsert_templates,
     upsert_workout,
 )
@@ -81,10 +83,11 @@ def sync(
     1. Resolve ``since`` — from ``config.since``, stored metadata, or epoch.
     2. Fetch and cache exercise templates if the cache is empty or
        ``refresh_templates`` is set.
-    3. Paginate events via ``api.get_events()``.
-    4. For each ``updated`` event: upsert the workout (with error isolation).
-    5. For each ``deleted`` event: soft-delete the workout.
-    6. On success (and not dry-run): persist ``last_sync_at``.
+    3. Fetch and persist all routines via ``api.get_routines()``.
+    4. Paginate events via ``api.get_events()``.
+    5. For each ``updated`` event: upsert the workout (with error isolation).
+    6. For each ``deleted`` event: soft-delete the workout.
+    7. On success (and not dry-run): persist ``last_sync_at``.
     """
     result = SyncResult(dry_run=config.dry_run)
 
@@ -94,7 +97,10 @@ def sync(
     # 2. Fetch / refresh exercise templates
     _ensure_templates(api, conn, config.refresh_templates)
 
-    # 3. Paginate events
+    # 3. Fetch / persist routines
+    _ensure_routines(api, conn)
+
+    # 5. Paginate events
     page = 1
     page_count = 1
 
@@ -105,7 +111,7 @@ def sync(
         if page_count == 1 and page == 1:
             page_count = events_page.page_count
 
-        # 4-5. Process each event with error isolation
+        # 6-7. Process each event with error isolation
         for event in events_page.events:
             try:
                 if event.type == "updated" and event.workout:
@@ -133,7 +139,7 @@ def sync(
         if page <= page_count:
             time.sleep(0.5)
 
-    # 6. Persist last_sync_at on success
+    # 8. Persist last_sync_at on success
     if not config.dry_run and result.errors == 0:
         now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         set_sync_meta(conn, "last_sync_at", now)
@@ -191,6 +197,18 @@ def _process_updated(conn: Any, workout: dict[str, Any]) -> None:
     """
     exercises = workout.pop("exercises", [])
     upsert_workout(conn, workout, exercises)
+
+
+def _ensure_routines(api: HevyClient, conn: Any) -> None:
+    """Fetch all routines from the Hevy API and persist them.
+
+    Routines are fetched on every sync run because they are small
+    and rarely change. Caching in the DB avoids redundant API calls
+    in the web view.
+    """
+    routines = api.get_routines()
+    if routines:
+        upsert_routines(conn, routines)
 
 
 def _process_deleted(conn: Any, workout: dict[str, Any] | None) -> None:

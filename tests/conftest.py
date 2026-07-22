@@ -65,8 +65,14 @@ class MockHevyClient:
     def __init__(self) -> None:
         self.events_pages: list[EventsPage] = []
         self.templates: list[dict[str, Any]] = []
+        self.routines: list[dict[str, Any]] = []
         self.get_events_calls: list[tuple[str, int]] = []
         self.get_templates_calls: list[tuple[int, int]] = []
+        self.get_routines_calls: list[tuple[()]] = []
+
+    def get_routines(self) -> list[dict[str, Any]]:
+        self.get_routines_calls.append(())
+        return self.routines
 
     def get_events(self, since: str, page: int = 1) -> EventsPage:
         self.get_events_calls.append((since, page))
@@ -95,6 +101,7 @@ def sample_workout_dict() -> dict[str, Any]:
         "end_time": "2024-06-01T09:00:00Z",
         "updated_at": "2024-06-01T10:00:00Z",
         "created_at": "2024-05-01T08:00:00Z",
+        "routine_id": None,
         "exercises": [
             {
                 "exercise_template_id": "t001",
