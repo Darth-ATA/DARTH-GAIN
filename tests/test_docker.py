@@ -63,8 +63,8 @@ class TestDockerfile:
         assert "WORKDIR /app" in content, "Should set workdir to /app"
         assert "uvicorn" in content, "Should use uvicorn as server"
         assert (
-            "darth_gain.web.app:app" in content
-        ), "Should reference the FastAPI app"
+            "darth_gain.web.asgi:app" in content
+        ), "Should reference the ASGI entry point"
 
 
 # ===========================================================================
@@ -85,7 +85,7 @@ class TestComposeFile:
 
         assert "web:" in content, "Should define a web service"
         assert "8000:8000" in content, "Should map port 8000"
-        assert "./data:/data" in content, "Should mount ./data:/data volume"
+        assert "/data:/data" in content, "Should mount /data:/data volume"
         assert "unless-stopped" in content, "Should set restart policy"
         assert (
             "DARTH_GAIN_SECRET" in content

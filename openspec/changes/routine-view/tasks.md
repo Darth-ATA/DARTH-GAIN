@@ -35,10 +35,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Web UI (PR 2)
 
-- [ ] 2.1 Create `routines.py` router with `GET /routines` — per-template progression check, routine grouping via latest-workout join, "Uncategorized" bucket
-- [ ] 2.2 Create `routine_view.html` — extends `base.html`, group sections with headers + exercise count, reuses `exercise_card.html`, "Uncategorized" last
-- [ ] 2.3 Add "Routines" nav link in `base.html`; import and register `routines.router` in `app.py`
-- [ ] 2.4 Create `test_web_routines.py` — auth redirect, empty state, grouping by 2 routines, uncategorized bucket, progression cards, error isolation
+- [x] 2.1 Create `routines.py` router with `GET /routines` — per-template progression check, routine grouping via workouts.routine_id join, "Uncategorized" bucket (deduplicates against routine groups)
+- [x] 2.2 Create `routines.html` — extends `base.html`, group sections with headers + exercise count, reuses `exercise_card.html`, "Uncategorized" last
+- [x] 2.3 Add "Routines" nav link in `base.html`; import and register `routines.router` in `app.py`
+- [x] 2.4 Create `test_web_routines.py` — 12 tests: auth redirect, empty state, grouping by 2 routines, uncategorized bucket, progression cards, empty routine handling, only-uncategorized scenario
 
 ## Implementation Order
 
