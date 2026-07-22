@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from darth_gain.db.engine import create_engine, create_tables
-from darth_gain.web.routers import auth, dashboard, exercises
+from darth_gain.web.routers import auth, dashboard, exercises, routines
 
 
 def _resolve_static_dir() -> str:
@@ -90,6 +90,7 @@ def create_app(
     app.include_router(auth.router)
     app.include_router(dashboard.router)
     app.include_router(exercises.router)
+    app.include_router(routines.router)
 
     # Auth exception handler — redirect 401 to login page
     @app.exception_handler(HTTPException)

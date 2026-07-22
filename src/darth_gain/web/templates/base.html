@@ -15,6 +15,7 @@
             <a href="/" class="nav-brand">DARTH-GAIN</a>
             <div class="nav-links">
                 {% if request.cookies.get('dg_session') %}
+                <a href="/routines" class="nav-link">Routines</a>
                 <a href="/logout" class="nav-link">Logout</a>
                 {% endif %}
             </div>
