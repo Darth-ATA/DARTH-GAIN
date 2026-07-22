@@ -142,7 +142,7 @@ class HevyClient:
             ``equipment``, and ``is_custom``.
         """
         templates: list[dict[str, Any]] = []
-        base_url = f"{self._client.config.base_url}/v1/exercise_templates"
+        base_url = f"{self._client.config.base_url}v1/exercise_templates"
         headers = self._client._build_headers()
 
         page = 1
