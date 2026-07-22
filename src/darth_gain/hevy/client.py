@@ -98,7 +98,7 @@ class HevyClient:
         )
         data = resp.json()
 
-        raw_events: list[dict[str, Any]] = data.get("workouts", [])
+        raw_events: list[dict[str, Any]] = data.get("workouts") or data.get("events", [])
 
         events: list[WorkoutEvent] = []
         for i, raw in enumerate(raw_events):
