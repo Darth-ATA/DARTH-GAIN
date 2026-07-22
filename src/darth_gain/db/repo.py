@@ -49,14 +49,16 @@ def upsert_workout(
 
         # Upsert the workout row (preserve original created_at)
         conn.execute(
-            """INSERT INTO workouts (id, title, description, start_time, end_time, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?)
+            """INSERT INTO workouts (id, title, description, start_time, end_time,
+                                     updated_at, routine_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(id) DO UPDATE SET
                    title       = excluded.title,
                    description = excluded.description,
                    start_time   = excluded.start_time,
                    end_time     = excluded.end_time,
-                   updated_at   = excluded.updated_at""",
+                   updated_at   = excluded.updated_at,
+                   routine_id   = excluded.routine_id""",
             (
                 workout_id,
                 workout.get("title", ""),
@@ -64,6 +66,7 @@ def upsert_workout(
                 workout.get("start_time", ""),
                 workout.get("end_time"),
                 now,
+                workout.get("routine_id"),
             ),
         )
 
@@ -189,6 +192,94 @@ def get_template_count(conn: sqlite3.Connection) -> int:
         "SELECT COUNT(*) AS cnt FROM exercise_templates"
     ).fetchone()
     return row["cnt"]
+
+
+# ---------------------------------------------------------------------------
+# Routines
+# ---------------------------------------------------------------------------
+
+
+def upsert_routine(
+    conn: sqlite3.Connection,
+    routine: Mapping[str, Any],
+) -> None:
+    """Insert or replace a single routine.
+
+    Uses ``INSERT OR REPLACE`` — if a routine with the same ``id``
+    already exists it is replaced.
+
+    Args:
+        conn: Open SQLite connection.
+        routine: Dict with keys ``id``, ``title``, ``folder_id``,
+            ``created_at``, ``updated_at``.
+    """
+    conn.execute(
+        """INSERT OR REPLACE INTO routines
+           (id, title, folder_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (
+            routine["id"],
+            routine.get("title", ""),
+            routine.get("folder_id"),
+            routine.get("created_at"),
+            routine.get("updated_at"),
+        ),
+    )
+    conn.commit()
+
+
+def upsert_routines(
+    conn: sqlite3.Connection,
+    routines: Sequence[Mapping[str, Any]],
+) -> None:
+    """Insert or replace multiple routines.
+
+    Args:
+        conn: Open SQLite connection.
+        routines: Sequence of routine dicts.
+    """
+    for r in routines:
+        upsert_routine(conn, r)
+
+
+def get_routines(
+    conn: sqlite3.Connection,
+) -> list[dict[str, Any]]:
+    """Return all stored routines ordered by title.
+
+    Args:
+        conn: Open SQLite connection.
+
+    Returns:
+        List of routine dicts ordered by ``title``.
+    """
+    cursor = conn.execute(
+        "SELECT id, title, folder_id, created_at, updated_at "
+        "FROM routines ORDER BY title"
+    )
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def get_routine(
+    conn: sqlite3.Connection,
+    routine_id: str,
+) -> dict[str, Any] | None:
+    """Return a single routine by id.
+
+    Args:
+        conn: Open SQLite connection.
+        routine_id: The routine UUID.
+
+    Returns:
+        Routine dict or ``None`` if not found.
+    """
+    cursor = conn.execute(
+        "SELECT id, title, folder_id, created_at, updated_at "
+        "FROM routines WHERE id = ?",
+        (routine_id,),
+    )
+    row = cursor.fetchone()
+    return dict(row) if row else None
 
 
 # ---------------------------------------------------------------------------
