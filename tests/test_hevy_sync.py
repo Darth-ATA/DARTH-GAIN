@@ -495,7 +495,7 @@ class TestProgress:
 
         mock_progress = MagicMock()
 
-        sync(api, conn, cfg, progress=mock_progress)
+        sync(api, conn, cfg, progress=mock_progress, progress_task_id=42)
 
         # advance() should be called for each page processed
         assert mock_progress.advance.call_count >= 3

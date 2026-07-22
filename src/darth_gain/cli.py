@@ -67,7 +67,8 @@ def ingest(
         from rich.progress import Progress
 
         with Progress(transient=True) as progress_bar:
-            result = sync(api, conn, cfg, progress=progress_bar)
+            task_id = progress_bar.add_task("Syncing...", total=None)
+            result = sync(api, conn, cfg, progress=progress_bar, progress_task_id=task_id)
     else:
         result = sync(api, conn, cfg)
 

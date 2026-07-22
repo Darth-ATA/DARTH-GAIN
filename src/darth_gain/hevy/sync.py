@@ -63,6 +63,7 @@ def sync(
     conn: Any,
     config: Config,
     progress: Any = None,
+    progress_task_id: int | None = None,
 ) -> SyncResult:
     """Execute a full delta-sync from Hevy to the local SQLite database.
 
@@ -72,8 +73,11 @@ def sync(
         config: Application configuration (resolves ``since``,
             ``dry_run``, ``refresh_templates``).
         progress: Optional Rich ``Progress`` instance for page-level
-            progress tracking.  When provided, ``advance()`` is called
-            after each page is processed.  Ignored for single-page syncs.
+            progress tracking.  When provided, ``advance(progress_task_id)``
+            is called after each page is processed.  Ignored for single-page
+            syncs.
+        progress_task_id: Optional Rich ``Progress`` task ID for the
+            progress bar.  Required when ``progress`` is given.
 
     Returns:
         A :class:`SyncResult` with aggregated counts.
@@ -129,8 +133,8 @@ def sync(
                 result.errors += 1
 
         # Progress tracking
-        if progress is not None and page_count > 1:
-            progress.advance()
+        if progress is not None and progress_task_id is not None and page_count > 1:
+            progress.advance(progress_task_id)
 
         # Advance to next page
         page += 1
