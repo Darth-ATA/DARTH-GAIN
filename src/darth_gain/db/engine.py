@@ -97,6 +97,14 @@ CREATE TABLE IF NOT EXISTS users (
     hevy_api_key  TEXT,
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS routines (
+    id         TEXT PRIMARY KEY,
+    title      TEXT NOT NULL,
+    folder_id  INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 
@@ -122,6 +130,17 @@ def create_engine(db_path: str) -> sqlite3.Connection:
     return conn
 
 
+def _add_routine_id_column(conn: sqlite3.Connection) -> None:
+    """Add ``routine_id`` column to workouts table if it doesn't exist.
+
+    Idempotent — checks ``PRAGMA table_info`` before running
+    ``ALTER TABLE``.
+    """
+    columns = [row["name"] for row in conn.execute("PRAGMA table_info(workouts)")]
+    if "routine_id" not in columns:
+        conn.execute("ALTER TABLE workouts ADD COLUMN routine_id TEXT")
+
+
 def create_tables(conn: sqlite3.Connection) -> None:
     """Execute DDL to create all tables and indexes (idempotent).
 
@@ -132,4 +151,5 @@ def create_tables(conn: sqlite3.Connection) -> None:
         conn: An open SQLite connection.
     """
     conn.executescript(SCHEMA_SQL)
+    _add_routine_id_column(conn)
     conn.commit()

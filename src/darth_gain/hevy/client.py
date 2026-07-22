@@ -156,6 +156,31 @@ class HevyClient:
 
         return templates
 
+    def get_routines(self) -> list[dict[str, Any]]:
+        """Fetch all routines across all pages.
+
+        Paginates through every page (page_size=10) and returns the
+        aggregated list of routine dicts in repo-compatible format.
+
+        Returns:
+            List of routine dicts with keys ``id``, ``title``,
+            ``folder_id``, ``created_at``, and ``updated_at``.
+        """
+        routines: list[dict[str, Any]] = []
+
+        resp = self._client.routines.get_routines(page=1, page_size=10)
+        for r in resp.routines:
+            routines.append(_routine_to_dict(r))
+
+        page = 2
+        while page <= resp.page_count:
+            resp = self._client.routines.get_routines(page=page, page_size=10)
+            for r in resp.routines:
+                routines.append(_routine_to_dict(r))
+            page += 1
+
+        return routines
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers — SDK model → dict conversion
@@ -204,6 +229,7 @@ def _workout_to_dict(workout: Any) -> dict[str, Any]:
         "end_time": workout.end_time,
         "updated_at": workout.updated_at,
         "created_at": workout.created_at,
+        "routine_id": getattr(workout, "routine_id", None),
         "exercises": exercises,
     }
 
@@ -248,7 +274,25 @@ def _raw_workout_to_dict(workout: dict[str, Any]) -> dict[str, Any]:
         "end_time": workout.get("end_time"),
         "updated_at": workout.get("updated_at"),
         "created_at": workout.get("created_at"),
+        "routine_id": workout.get("routine_id"),
         "exercises": exercises,
+    }
+
+
+def _routine_to_dict(routine: Any) -> dict[str, Any]:
+    """Convert a SDK Routine model to a plain dict for repo functions.
+
+    Maps SDK field names to the format expected by
+    ``db.repo.upsert_routines``:
+
+    * ``folder_id`` (Optional[int]) → ``folder_id`` (int or None)
+    """
+    return {
+        "id": routine.id,
+        "title": routine.title,
+        "folder_id": routine.folder_id,
+        "created_at": routine.created_at,
+        "updated_at": routine.updated_at,
     }
 
 
