@@ -43,6 +43,7 @@ class ProgressionStatus:
         top_of_range_reached: Whether ALL normal set reps >= rep_max.
         recommendation: Human-readable recommendation string.
         error: Error message if check failed, None otherwise.
+        increment: Configured weight/time increment for this exercise.
     """
 
     exercise_template_id: str
@@ -53,6 +54,7 @@ class ProgressionStatus:
     top_of_range_reached: bool
     recommendation: str
     error: str | None
+    increment: float = 2.5
 
 
 @dataclass

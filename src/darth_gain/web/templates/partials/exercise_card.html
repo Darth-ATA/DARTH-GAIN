@@ -15,18 +15,33 @@
         </div>
         {% if card.current_weight is not none %}
         <div class="card-stat">
+            {% if card.exercise_type == "duration" %}
+            <span class="stat-label">Duration</span>
+            <span class="stat-value">{{ card.current_weight | int }}s</span>
+            {% else %}
             <span class="stat-label">Current Weight</span>
             <span class="stat-value">{{ card.current_weight }} kg</span>
+            {% endif %}
         </div>
         {% endif %}
         <div class="card-stat">
+            {% if card.exercise_type == "duration" %}
+            <span class="stat-label">Target Range</span>
+            <span class="stat-value">{{ card.rep_min }}s–{{ card.rep_max }}s</span>
+            {% else %}
             <span class="stat-label">Rep Range</span>
             <span class="stat-value">{{ card.rep_min }}–{{ card.rep_max }} reps</span>
+            {% endif %}
         </div>
         {% if card.status == "progress" and card.current_weight is not none %}
         <div class="card-stat card-stat-recommended">
+            {% if card.exercise_type == "duration" %}
+            <span class="stat-label">Next Target</span>
+            <span class="stat-value stat-value-accent">{{ (card.current_weight + card.increment) | int }}s</span>
+            {% else %}
             <span class="stat-label">Next Weight</span>
-            <span class="stat-value stat-value-accent">{{ card.current_weight + 2.5 }} kg</span>
+            <span class="stat-value stat-value-accent">{{ card.current_weight + card.increment }} kg</span>
+            {% endif %}
         </div>
         {% endif %}
     </div>
