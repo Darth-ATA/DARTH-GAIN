@@ -1,9 +1,9 @@
 """Progression engine for DARTH-GAIN double progression algorithm.
 
 Provides the ``ProgressionEngine`` class that implements deterministic
-double progression: checks whether an exercise's latest workout reached
-the top of its rep range and recommends a weight increase when criteria
-are met.
+double progression: checks whether recent workouts reached the top of
+the rep range across the last N sessions, and recommends a weight
+increase when a configurable threshold of sessions hit the top.
 """
 
 from __future__ import annotations
@@ -137,17 +137,48 @@ class ProgressionEngine:
                 error=None,
             )
 
-        # 6. Group by workout (use start_time as key)
-        #    sets are already ordered by start_time DESC, so first group is most recent
-        most_recent_date = sets[0]["start_time"]
-        latest_sets = [s for s in sets if s["start_time"] == most_recent_date]
-        total_workouts = len({s["start_time"] for s in sets})
+        # 6. Group by workout date (start_time), preserving DESC order
+        groups: dict[str, list[dict]] = {}
+        for s in sets:
+            groups.setdefault(s["start_time"], []).append(s)
+        ordered_dates = list(groups.keys())  # latest first
 
-        # 7. Filter out NULL weight_kg or NULL reps
-        valid_sets = [s for s in latest_sets if s["weight_kg"] is not None and s["reps"] is not None]
-        sets_filtered_null = len(latest_sets) - len(valid_sets)
+        total_workouts = len(ordered_dates)
 
-        if not valid_sets:
+        # 7. Evaluate the last N sessions (adaptive threshold)
+        #     - 3+ sessions available: need 2 at top of range to progress
+        #     - 1-2 sessions: need ALL at top (same as classic double progression)
+        n_sessions = min(3, len(ordered_dates))
+        threshold = 2 if n_sessions >= 3 else n_sessions
+        recent_dates = ordered_dates[:n_sessions]
+
+        sessions_at_top = 0
+        total_valid_sessions = 0
+        most_recent_valid_sets: list[dict] = []
+        most_recent_date = ""
+
+        for date in recent_dates:
+            session_sets = groups[date]
+            valid = [
+                s for s in session_sets
+                if s["weight_kg"] is not None and s["reps"] is not None
+            ]
+            if not valid:
+                continue
+            if not most_recent_date:
+                most_recent_date = date
+                most_recent_valid_sets = valid
+            total_valid_sessions += 1
+            reps = [s["reps"] for s in valid]
+            if all(r >= config.rep_max for r in reps):
+                sessions_at_top += 1
+
+        sets_filtered_null = sum(
+            1 for s in sets[:sum(len(groups[d]) for d in recent_dates)]
+            if s["weight_kg"] is None or s["reps"] is None
+        )
+
+        if not most_recent_valid_sets:
             self._persist_history(
                 template_id,
                 "insufficient_data",
@@ -172,13 +203,13 @@ class ProgressionEngine:
                 error=None,
             )
 
-        # 8. Determine working weight (mode, tie → heavier)
-        weights = [s["weight_kg"] for s in valid_sets]
+        # 8. Determine working weight from most recent session (mode, tie → heavier)
+        weights = [s["weight_kg"] for s in most_recent_valid_sets]
         working_weight = self._resolve_working_weight(weights)
 
-        # 9. Check if all valid reps >= rep_max
-        latest_reps = [s["reps"] for s in valid_sets]
-        top_of_range = all(r >= config.rep_max for r in latest_reps)
+        # 9. Check if threshold of recent sessions hit top of range
+        top_of_range = sessions_at_top >= threshold
+        latest_reps = [s["reps"] for s in most_recent_valid_sets]
 
         # 10. Build result
         if top_of_range:
@@ -198,8 +229,11 @@ class ProgressionEngine:
             recommended_weight=recommended_weight,
             details={
                 "total_workouts_analyzed": total_workouts,
+                "sessions_evaluated": n_sessions,
+                "sessions_at_top": sessions_at_top,
+                "sessions_threshold": threshold,
                 "most_recent_workout_date": most_recent_date,
-                "sets_analyzed": len(valid_sets),
+                "sets_analyzed": len(most_recent_valid_sets),
                 "sets_filtered_null": sets_filtered_null,
                 "working_weight_kg": working_weight,
                 "weight_increment_kg": config.weight_increment,

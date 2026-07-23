@@ -14,9 +14,55 @@ from darth_gain.progression.models import ProgressionConfig, ProgressionHistoryE
 # Progression Config
 # ---------------------------------------------------------------------------
 
+# Default rep ranges per primary muscle group.
+# Used when no per-exercise config has been stored.
+_MUSCLE_DEFAULT_RANGES: dict[str, tuple[int, int]] = {
+    # Strength & compound — lower reps, heavier weight
+    "chest": (5, 10),
+    "shoulders": (5, 10),
+    "upper_back": (5, 10),
+    "lats": (5, 10),
+    "lower_back": (5, 10),
+    "glutes": (5, 10),
+    "hamstrings": (5, 10),
+    "quadriceps": (5, 10),
+    "traps": (5, 10),
+    # Isolation & arms — moderate reps
+    "biceps": (8, 12),
+    "triceps": (8, 12),
+    "forearms": (8, 12),
+    "abductors": (8, 12),
+    "adductors": (8, 12),
+    "calves": (8, 12),
+    "neck": (8, 12),
+    # Core & endurance — higher reps
+    "abdominals": (10, 20),
+    "cardio": (10, 20),
+    "hip_flexors": (10, 20),
+    # Default for unknown
+    "other": (8, 12),
+}
+
+
+def _get_muscle_defaults(conn: sqlite3.Connection, template_id: str) -> tuple[int, int]:
+    """Look up the template's muscle group and return its default rep range."""
+    row = conn.execute(
+        "SELECT primary_muscle_group FROM exercise_templates WHERE id = ?",
+        (template_id,),
+    ).fetchone()
+    if row is None:
+        return (8, 12)
+    muscle = row["primary_muscle_group"] or "other"
+    return _MUSCLE_DEFAULT_RANGES.get(muscle, (8, 12))
+
 
 def get_config(conn: sqlite3.Connection, template_id: str) -> ProgressionConfig:
     """Return the progression config for a template, or defaults if no row.
+
+    When no config has been stored, uses muscle-group-based defaults:
+    - Compound lifts (chest, back, legs): 5-10 reps
+    - Isolation (biceps, triceps): 8-12 reps
+    - Core: 10-20 reps
 
     Args:
         conn: Open SQLite connection.
@@ -41,7 +87,12 @@ def get_config(conn: sqlite3.Connection, template_id: str) -> ProgressionConfig:
             weight_increment=row["weight_increment"],
             enabled=bool(row["enabled"]),
         )
-    return ProgressionConfig(exercise_template_id=template_id)
+    rep_min, rep_max = _get_muscle_defaults(conn, template_id)
+    return ProgressionConfig(
+        exercise_template_id=template_id,
+        rep_min=rep_min,
+        rep_max=rep_max,
+    )
 
 
 def set_config(conn: sqlite3.Connection, config: ProgressionConfig) -> None:
