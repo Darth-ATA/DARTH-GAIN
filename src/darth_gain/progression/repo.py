@@ -64,6 +64,10 @@ def get_config(conn: sqlite3.Connection, template_id: str) -> ProgressionConfig:
     - Isolation (biceps, triceps): 8-12 reps
     - Core: 10-20 reps
 
+    For duration-type exercises (wall sit, plank), defaults are in seconds:
+    - Default: 30-60s with 5s increment
+    - Core duration: 30-90s with 5s increment
+
     Args:
         conn: Open SQLite connection.
         template_id: The exercise template ID to look up.
@@ -87,7 +91,32 @@ def get_config(conn: sqlite3.Connection, template_id: str) -> ProgressionConfig:
             weight_increment=row["weight_increment"],
             enabled=bool(row["enabled"]),
         )
-    rep_min, rep_max = _get_muscle_defaults(conn, template_id)
+    # Check if the exercise is a duration type
+    trow = conn.execute(
+        "SELECT type, primary_muscle_group FROM exercise_templates WHERE id = ?",
+        (template_id,),
+    ).fetchone()
+    if trow and trow["type"] == "duration":
+        muscle = trow["primary_muscle_group"] or ""
+        if muscle in ("abdominals", "cardio"):
+            return ProgressionConfig(
+                exercise_template_id=template_id,
+                rep_min=30,
+                rep_max=90,
+                weight_increment=5.0,
+            )
+        return ProgressionConfig(
+            exercise_template_id=template_id,
+            rep_min=30,
+            rep_max=60,
+            weight_increment=5.0,
+        )
+    # Muscle-group-based defaults for weight exercises
+    if trow:
+        muscle = trow["primary_muscle_group"] or "other"
+        rep_min, rep_max = _MUSCLE_DEFAULT_RANGES.get(muscle, (8, 12))
+    else:
+        rep_min, rep_max = (8, 12)
     return ProgressionConfig(
         exercise_template_id=template_id,
         rep_min=rep_min,
@@ -280,7 +309,7 @@ def get_normal_sets(conn: sqlite3.Connection, template_id: str) -> list[dict]:
     """
     cursor = conn.execute(
         """SELECT s.id, s.exercise_id, s.set_index, s.type,
-                  s.weight_kg, s.reps, s.is_deleted,
+                  s.weight_kg, s.reps, s.duration_seconds, s.is_deleted,
                   e.exercise_template_id,
                   w.start_time
            FROM sets s

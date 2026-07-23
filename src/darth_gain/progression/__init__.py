@@ -25,7 +25,7 @@ from darth_gain.progression.repo import (
 # Exercise types that don't qualify for weight-based progression
 # ---------------------------------------------------------------------------
 
-_SKIP_TYPES = frozenset({"reps_only", "duration", "distance"})
+_SKIP_TYPES = frozenset({"reps_only", "distance"})
 
 
 class ProgressionEngine:
@@ -90,8 +90,12 @@ class ProgressionEngine:
                 error=None,
             )
 
-        # 4. Check if exercise type qualifies for progression
+        # 4. Route duration exercises to separate handler
         exercise_type = template.get("type", "")
+        if exercise_type == "duration":
+            return self._check_duration(template, config)
+
+        # 5. Check if exercise type qualifies for weight progression
         if exercise_type in _SKIP_TYPES:
             self._persist_history(
                 template_id,
@@ -251,11 +255,159 @@ class ProgressionEngine:
             top_of_range_reached=top_of_range,
             recommendation=recommendation,
             error=None,
+            increment=config.weight_increment,
         )
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _check_duration(
+        self,
+        template: dict,
+        config: ProgressionConfig,
+    ) -> ProgressionStatus:
+        """Duration-based progression: increase target time instead of weight.
+
+        Uses the same double-progression logic but with ``duration_seconds``
+        instead of reps and weight.
+
+        Args:
+            template: Exercise template dict (must be type=duration).
+            config: Progression config where rep_min/rep_max define the
+                    target time range in seconds, and weight_increment is
+                    the time increment in seconds.
+
+        Returns:
+            A ``ProgressionStatus`` with time-based values.
+        """
+        template_id = template["id"]
+
+        # 1. Get normal sets (includes duration_seconds)
+        sets = get_normal_sets(self.conn, template_id)
+        if not sets:
+            self._persist_history(
+                template_id,
+                "insufficient_data",
+                current_weight=None,
+                recommended_weight=None,
+                details={"reason": "no_normal_sets_found"},
+            )
+            return ProgressionStatus(
+                exercise_template_id=template_id,
+                exercise_name=template["title"],
+                rep_range=(config.rep_min, config.rep_max),
+                current_weight_kg=None,
+                latest_reps=[],
+                top_of_range_reached=False,
+                recommendation="Insufficient data — no workout history found",
+                error=None,
+            )
+
+        # 2. Group by workout date
+        groups: dict[str, list[dict]] = {}
+        for s in sets:
+            groups.setdefault(s["start_time"], []).append(s)
+        ordered_dates = list(groups.keys())  # latest first
+        total_workouts = len(ordered_dates)
+
+        # 3. Evaluate last N sessions (same adaptive threshold as weight)
+        n_sessions = min(3, len(ordered_dates))
+        threshold = 2 if n_sessions >= 3 else n_sessions
+        recent_dates = ordered_dates[:n_sessions]
+
+        sessions_at_top = 0
+        total_valid_sessions = 0
+        most_recent_valid_sets: list[dict] = []
+        most_recent_date = ""
+
+        for date in recent_dates:
+            session_sets = groups[date]
+            valid = [s for s in session_sets if s["duration_seconds"] is not None]
+            if not valid:
+                continue
+            if not most_recent_date:
+                most_recent_date = date
+                most_recent_valid_sets = valid
+            total_valid_sessions += 1
+            durations = [s["duration_seconds"] for s in valid]
+            if all(d >= config.rep_max for d in durations):
+                sessions_at_top += 1
+
+        if not most_recent_valid_sets:
+            self._persist_history(
+                template_id,
+                "insufficient_data",
+                current_weight=None,
+                recommended_weight=None,
+                details={
+                    "reason": "all_sets_have_null_duration",
+                    "total_workouts_analyzed": total_workouts,
+                },
+            )
+            return ProgressionStatus(
+                exercise_template_id=template_id,
+                exercise_name=template["title"],
+                rep_range=(config.rep_min, config.rep_max),
+                current_weight_kg=None,
+                latest_reps=[],
+                top_of_range_reached=False,
+                recommendation="Insufficient data — all sets have null duration",
+                error=None,
+            )
+
+        # 4. Determine working time from most recent session (mode, tie → longer)
+        times = [s["duration_seconds"] for s in most_recent_valid_sets]
+        working_time = self._resolve_working_weight(times)  # mode, tie → max
+
+        # 5. Check threshold
+        top_of_range = sessions_at_top >= threshold
+        latest_times = [s["duration_seconds"] for s in most_recent_valid_sets]
+
+        # 6. Build result
+        if top_of_range:
+            recommended_time = working_time + config.weight_increment
+            status = "progress"
+            recommendation = f"increase to {recommended_time}s"
+        else:
+            recommended_time = None
+            status = "maintain"
+            recommendation = f"keep at {working_time}s"
+
+        details = {
+            "total_workouts_analyzed": total_workouts,
+            "sessions_evaluated": n_sessions,
+            "sessions_at_top": sessions_at_top,
+            "sessions_threshold": threshold,
+            "most_recent_workout_date": most_recent_date,
+            "sets_analyzed": len(most_recent_valid_sets),
+            "working_time_seconds": working_time,
+            "time_increment_seconds": config.weight_increment,
+            "time_range": [config.rep_min, config.rep_max],
+            "latest_times": latest_times,
+            "exercise_type": "duration",
+        }
+
+        # 7. Persist history (store time as weight for backward compat)
+        self._persist_history(
+            template_id,
+            status,
+            current_weight=working_time,
+            recommended_weight=recommended_time,
+            details=details,
+        )
+
+        return ProgressionStatus(
+            exercise_template_id=template_id,
+            exercise_name=template["title"],
+            rep_range=(config.rep_min, config.rep_max),
+            current_weight_kg=working_time,
+            latest_reps=latest_times,
+            top_of_range_reached=top_of_range,
+            recommendation=recommendation,
+            error=None,
+            increment=config.weight_increment,
+        )
 
     @staticmethod
     def _resolve_working_weight(weights: list[float]) -> float:
