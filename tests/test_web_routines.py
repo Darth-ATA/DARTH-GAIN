@@ -247,7 +247,7 @@ class TestRoutinesWithExercises:
             _seed_routine(conn, "r001", "Push Day")
             _seed_template(conn, "t001", "Bench Press", "Chest")
             _seed_template(conn, "t002", "Overhead Press", "Shoulders")
-            _seed_workout(conn, "w001", "2024-06-01T08:00:00Z", "r001")
+            _seed_workout(conn, "w001", "2026-09-01T08:00:00Z", "r001")
             _seed_exercise(conn, 1, "w001", "t001")
             _seed_set(conn, 1, 1, 80.0, 12, 0)  # all reps >= 12 → PROGRESS
             _seed_set(conn, 2, 1, 80.0, 12, 1)
@@ -259,14 +259,14 @@ class TestRoutinesWithExercises:
             # --- Routine B: Pull Day (1 exercise) ---
             _seed_routine(conn, "r002", "Pull Day")
             _seed_template(conn, "t003", "Barbell Row", "Back")
-            _seed_workout(conn, "w002", "2024-06-03T08:00:00Z", "r002")
+            _seed_workout(conn, "w002", "2026-09-03T08:00:00Z", "r002")
             _seed_exercise(conn, 3, "w002", "t003")
             _seed_set(conn, 4, 3, 60.0, 10, 0)  # reps < 12 → MAINTAIN
             _seed_progression_config(conn, "t003")
 
             # --- Uncategorized: null routine_id (1 exercise) ---
             _seed_template(conn, "t004", "Deadlift", "Back")
-            _seed_workout(conn, "w003", "2024-06-04T08:00:00Z", None)
+            _seed_workout(conn, "w003", "2026-09-04T08:00:00Z", None)
             _seed_exercise(conn, 4, "w003", "t004")
             # no sets → INSUFFICIENT_DATA
             _seed_progression_config(conn, "t004")
@@ -414,7 +414,7 @@ class TestRoutinesOnlyUncategorized:
             conn = _create_user_db(str(user_db))
 
             _seed_template(conn, "t001", "Squat", "Legs")
-            _seed_workout(conn, "w001", "2024-06-01T08:00:00Z", None)
+            _seed_workout(conn, "w001", "2026-09-01T08:00:00Z", None)
             _seed_exercise(conn, 1, "w001", "t001")
             _seed_set(conn, 1, 1, 100.0, 10, 0)
             _seed_progression_config(conn, "t001")

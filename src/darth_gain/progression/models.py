@@ -21,6 +21,9 @@ class ProgressionConfig:
         rep_max: Maximum reps in the target rep range (default 12).
         weight_increment: Weight to add when progressing (kg, default 2.5).
         enabled: Whether automatic progression checking is enabled (default True).
+        deload_after_weeks: Weeks of inactivity before deload triggers (default 2).
+        deload_percent: Percentage to reduce weight during deload (default 10).
+        training_level: Training level affecting deload threshold (default "intermediate").
     """
 
     exercise_template_id: str
@@ -28,6 +31,9 @@ class ProgressionConfig:
     rep_max: int = 12
     weight_increment: float = 2.5
     enabled: bool = True
+    deload_after_weeks: int = 2
+    deload_percent: int = 10
+    training_level: str = "intermediate"
 
 
 @dataclass
@@ -44,6 +50,8 @@ class ProgressionStatus:
         recommendation: Human-readable recommendation string.
         error: Error message if check failed, None otherwise.
         increment: Configured weight/time increment for this exercise.
+        deload_recommended: Whether a deload was recommended due to inactivity.
+        deload_weight_kg: The calculated deload weight if recommended, otherwise None.
     """
 
     exercise_template_id: str
@@ -55,6 +63,8 @@ class ProgressionStatus:
     recommendation: str
     error: str | None
     increment: float = 2.5
+    deload_recommended: bool = False
+    deload_weight_kg: float | None = None
 
 
 @dataclass
@@ -65,10 +75,12 @@ class ProgressionHistoryEntry:
         id: Auto-incremented primary key.
         exercise_template_id: FK to exercise_templates.id.
         checked_at: ISO 8601 timestamp of when the check was performed.
-        status: One of ``progress``, ``maintain``, ``insufficient_data``, ``skipped``.
+        status: One of ``progress``, ``maintain``, ``insufficient_data``, ``skipped``, ``deload_recommended``.
         current_weight_kg: Working weight at check time, or None.
         recommended_weight_kg: Recommended new weight if progressing, or None.
         details: Optional JSON string with per-workout breakdown.
+        deload_recommended: Whether a deload was recommended (status == "deload_recommended").
+        deload_weight_kg: The calculated deload weight if recommended, otherwise None.
     """
 
     id: int
@@ -78,3 +90,5 @@ class ProgressionHistoryEntry:
     current_weight_kg: float | None
     recommended_weight_kg: float | None
     details: str | None
+    deload_recommended: bool = False
+    deload_weight_kg: float | None = None

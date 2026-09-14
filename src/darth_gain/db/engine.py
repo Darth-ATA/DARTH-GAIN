@@ -141,6 +141,70 @@ def _add_routine_id_column(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE workouts ADD COLUMN routine_id TEXT")
 
 
+def _add_deload_columns_to_progression_config(conn: sqlite3.Connection) -> None:
+    """Add deload columns to progression_config table if they don't exist.
+
+    Idempotent — checks ``PRAGMA table_info`` before running ``ALTER TABLE``.
+    """
+    columns = [row["name"] for row in conn.execute("PRAGMA table_info(progression_config)")]
+
+    if "deload_after_weeks" not in columns:
+        conn.execute("ALTER TABLE progression_config ADD COLUMN deload_after_weeks INTEGER NOT NULL DEFAULT 2")
+
+    if "deload_percent" not in columns:
+        conn.execute("ALTER TABLE progression_config ADD COLUMN deload_percent INTEGER NOT NULL DEFAULT 10")
+
+    if "training_level" not in columns:
+        conn.execute(
+            "ALTER TABLE progression_config ADD COLUMN training_level TEXT NOT NULL DEFAULT 'intermediate' "
+            "CHECK(training_level IN ('novice','intermediate','advanced'))"
+        )
+
+
+def _recreate_progression_history_with_deload_status(conn: sqlite3.Connection) -> None:
+    """Recreate progression_history table with updated CHECK constraint for 'deload_recommended'.
+
+    SQLite doesn't support ALTER TABLE to modify CHECK constraints, so we
+    recreate the table with the updated constraint and copy data over.
+    """
+    # Check if the current constraint already includes 'deload_recommended'
+    table_sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='progression_history'"
+    ).fetchone()
+
+    if table_sql and "deload_recommended" in table_sql[0]:
+        return  # Already has the updated constraint
+
+    # Recreate table with updated CHECK constraint
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS progression_history_new (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            exercise_template_id TEXT NOT NULL REFERENCES exercise_templates(id),
+            checked_at           TEXT NOT NULL DEFAULT (datetime('now')),
+            status               TEXT NOT NULL CHECK(status IN ('progress','maintain','insufficient_data','skipped','deload_recommended')),
+            current_weight_kg    REAL,
+            recommended_weight_kg REAL,
+            details              TEXT
+        )
+    """)
+
+    conn.execute("""
+        INSERT INTO progression_history_new (id, exercise_template_id, checked_at, status,
+                                              current_weight_kg, recommended_weight_kg, details)
+        SELECT id, exercise_template_id, checked_at, status,
+               current_weight_kg, recommended_weight_kg, details
+        FROM progression_history
+    """)
+
+    conn.execute("DROP TABLE progression_history")
+    conn.execute("ALTER TABLE progression_history_new RENAME TO progression_history")
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_progression_history_template
+            ON progression_history(exercise_template_id)
+    """)
+
+
 def create_tables(conn: sqlite3.Connection) -> None:
     """Execute DDL to create all tables and indexes (idempotent).
 
@@ -152,4 +216,6 @@ def create_tables(conn: sqlite3.Connection) -> None:
     """
     conn.executescript(SCHEMA_SQL)
     _add_routine_id_column(conn)
+    _add_deload_columns_to_progression_config(conn)
+    _recreate_progression_history_with_deload_status(conn)
     conn.commit()
