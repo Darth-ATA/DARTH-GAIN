@@ -43,6 +43,35 @@ _MUSCLE_DEFAULT_RANGES: dict[str, tuple[int, int]] = {
     "other": (8, 12),
 }
 
+# Deload defaults per primary muscle group: (deload_after_weeks, deload_percent)
+# Compound muscles use longer thresholds and larger deloads; isolation uses shorter/smaller.
+_MUSCLE_DELOAD_DEFAULTS: dict[str, tuple[int, int]] = {
+    # Compound movements — longer threshold, larger deload
+    "chest": (3, 15),
+    "shoulders": (3, 15),
+    "upper_back": (3, 15),
+    "lats": (3, 15),
+    "lower_back": (3, 15),
+    "glutes": (3, 15),
+    "hamstrings": (3, 15),
+    "quadriceps": (3, 15),
+    # Isolation movements — shorter threshold, smaller deload
+    "biceps": (2, 10),
+    "triceps": (2, 10),
+    "forearms": (2, 10),
+    "abductors": (2, 10),
+    "adductors": (2, 10),
+    "calves": (2, 10),
+    "neck": (2, 10),
+    "traps": (2, 10),
+    # Core & endurance — shorter threshold, smaller deload
+    "abdominals": (2, 10),
+    "cardio": (2, 10),
+    "hip_flexors": (2, 10),
+    # Default for unknown
+    "other": (2, 10),
+}
+
 
 def _get_muscle_defaults(conn: sqlite3.Connection, template_id: str) -> tuple[int, int]:
     """Look up the template's muscle group and return its default rep range."""
@@ -54,6 +83,22 @@ def _get_muscle_defaults(conn: sqlite3.Connection, template_id: str) -> tuple[in
         return (8, 12)
     muscle = row["primary_muscle_group"] or "other"
     return _MUSCLE_DEFAULT_RANGES.get(muscle, (8, 12))
+
+
+def _get_muscle_deload_defaults(conn: sqlite3.Connection, template_id: str) -> tuple[int, int]:
+    """Look up the template's muscle group and return its default deload settings.
+    
+    Returns:
+        Tuple of (deload_after_weeks, deload_percent)
+    """
+    row = conn.execute(
+        "SELECT primary_muscle_group FROM exercise_templates WHERE id = ?",
+        (template_id,),
+    ).fetchone()
+    if row is None:
+        return (2, 10)
+    muscle = row["primary_muscle_group"] or "other"
+    return _MUSCLE_DELOAD_DEFAULTS.get(muscle, (2, 10))
 
 
 def get_config(conn: sqlite3.Connection, template_id: str) -> ProgressionConfig:
@@ -68,6 +113,10 @@ def get_config(conn: sqlite3.Connection, template_id: str) -> ProgressionConfig:
     - Default: 30-60s with 5s increment
     - Core duration: 30-90s with 5s increment
 
+    Deload settings also use muscle-group-based defaults:
+    - Compound movements: 3 weeks / 15%
+    - Isolation movements: 2 weeks / 10%
+
     Args:
         conn: Open SQLite connection.
         template_id: The exercise template ID to look up.
@@ -77,7 +126,8 @@ def get_config(conn: sqlite3.Connection, template_id: str) -> ProgressionConfig:
         Never returns ``None``.
     """
     cursor = conn.execute(
-        """SELECT exercise_template_id, rep_min, rep_max, weight_increment, enabled
+        """SELECT exercise_template_id, rep_min, rep_max, weight_increment, enabled,
+                  deload_after_weeks, deload_percent, training_level
            FROM progression_config
            WHERE exercise_template_id = ?""",
         (template_id,),
@@ -90,6 +140,9 @@ def get_config(conn: sqlite3.Connection, template_id: str) -> ProgressionConfig:
             rep_max=row["rep_max"],
             weight_increment=row["weight_increment"],
             enabled=bool(row["enabled"]),
+            deload_after_weeks=row["deload_after_weeks"],
+            deload_percent=row["deload_percent"],
+            training_level=row["training_level"],
         )
     # Check if the exercise is a duration type
     trow = conn.execute(
@@ -99,28 +152,38 @@ def get_config(conn: sqlite3.Connection, template_id: str) -> ProgressionConfig:
     if trow and trow["type"] == "duration":
         muscle = trow["primary_muscle_group"] or ""
         if muscle in ("abdominals", "cardio"):
+            deload_weeks, deload_pct = _get_muscle_deload_defaults(conn, template_id)
             return ProgressionConfig(
                 exercise_template_id=template_id,
                 rep_min=30,
                 rep_max=90,
                 weight_increment=5.0,
+                deload_after_weeks=deload_weeks,
+                deload_percent=deload_pct,
             )
+        deload_weeks, deload_pct = _get_muscle_deload_defaults(conn, template_id)
         return ProgressionConfig(
             exercise_template_id=template_id,
             rep_min=30,
             rep_max=60,
             weight_increment=5.0,
+            deload_after_weeks=deload_weeks,
+            deload_percent=deload_pct,
         )
     # Muscle-group-based defaults for weight exercises
     if trow:
         muscle = trow["primary_muscle_group"] or "other"
         rep_min, rep_max = _MUSCLE_DEFAULT_RANGES.get(muscle, (8, 12))
+        deload_weeks, deload_pct = _MUSCLE_DELOAD_DEFAULTS.get(muscle, (2, 10))
     else:
         rep_min, rep_max = (8, 12)
+        deload_weeks, deload_pct = (2, 10)
     return ProgressionConfig(
         exercise_template_id=template_id,
         rep_min=rep_min,
         rep_max=rep_max,
+        deload_after_weeks=deload_weeks,
+        deload_percent=deload_pct,
     )
 
 
@@ -130,20 +193,42 @@ def set_config(conn: sqlite3.Connection, config: ProgressionConfig) -> None:
     Inserts a new row or replaces an existing one with the same
     ``exercise_template_id``.
 
+    Validates and clamps:
+    - ``deload_percent`` to [5, 40]
+    - ``training_level`` must be one of ('novice', 'intermediate', 'advanced')
+
     Args:
         conn: Open SQLite connection.
         config: The ``ProgressionConfig`` to persist.
+
+    Raises:
+        ValueError: If ``training_level`` is not a valid value.
     """
+    # Clamp deload_percent to [5, 40]
+    deload_percent = max(5, min(40, config.deload_percent))
+    
+    # Validate training_level
+    valid_training_levels = ("novice", "intermediate", "advanced")
+    if config.training_level not in valid_training_levels:
+        raise ValueError(
+            f"Invalid training_level: {config.training_level!r}. "
+            f"Must be one of {valid_training_levels}"
+        )
+    
     conn.execute(
         """INSERT OR REPLACE INTO progression_config
-           (exercise_template_id, rep_min, rep_max, weight_increment, enabled)
-           VALUES (?, ?, ?, ?, ?)""",
+           (exercise_template_id, rep_min, rep_max, weight_increment, enabled,
+            deload_after_weeks, deload_percent, training_level)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             config.exercise_template_id,
             config.rep_min,
             config.rep_max,
             config.weight_increment,
             int(config.enabled),
+            config.deload_after_weeks,
+            deload_percent,
+            config.training_level,
         ),
     )
     conn.commit()
@@ -160,7 +245,8 @@ def get_all_configs(conn: sqlite3.Connection) -> list[ProgressionConfig]:
         Empty list if no configs exist.
     """
     cursor = conn.execute(
-        """SELECT exercise_template_id, rep_min, rep_max, weight_increment, enabled
+        """SELECT exercise_template_id, rep_min, rep_max, weight_increment, enabled,
+                  deload_after_weeks, deload_percent, training_level
            FROM progression_config
            ORDER BY exercise_template_id"""
     )
@@ -171,6 +257,9 @@ def get_all_configs(conn: sqlite3.Connection) -> list[ProgressionConfig]:
             rep_max=row["rep_max"],
             weight_increment=row["weight_increment"],
             enabled=bool(row["enabled"]),
+            deload_after_weeks=row["deload_after_weeks"],
+            deload_percent=row["deload_percent"],
+            training_level=row["training_level"],
         )
         for row in cursor.fetchall()
     ]
@@ -336,4 +425,6 @@ def _row_to_history_entry(row: sqlite3.Row) -> ProgressionHistoryEntry:
         current_weight_kg=row["current_weight_kg"],
         recommended_weight_kg=row["recommended_weight_kg"],
         details=row["details"],
+        deload_recommended=row["status"] == "deload_recommended",
+        deload_weight_kg=row["recommended_weight_kg"] if row["status"] == "deload_recommended" else None,
     )

@@ -209,14 +209,14 @@ class TestDashboardWithExercises:
 
             # t001 — PROGRESS: all reps >= 12 (default rep_max)
             _seed_template(conn, "t001", "Bench Press", "Chest")
-            _seed_workout(conn, "w001", "2024-06-01T08:00:00Z")
+            _seed_workout(conn, "w001", "2026-09-01T08:00:00Z")
             _seed_exercise(conn, 1, "w001", "t001")
             _seed_set(conn, 1, 1, 80.0, 12, 0)  # 12 reps = rep_max → top of range
             _seed_set(conn, 2, 1, 80.0, 12, 1)  # all sets hit max
 
             # t002 — MAINTAIN: reps < 12
             _seed_template(conn, "t002", "Overhead Press", "Shoulders")
-            _seed_workout(conn, "w002", "2024-06-02T08:00:00Z")
+            _seed_workout(conn, "w002", "2026-09-02T08:00:00Z")
             _seed_exercise(conn, 2, "w002", "t002")
             _seed_set(conn, 3, 2, 50.0, 8, 0)  # 8 reps < 12
 
@@ -326,7 +326,7 @@ class TestDashboardErrorIsolation:
 
             # A valid template with data
             _seed_template(conn, "t001", "Working Press", "Shoulders")
-            _seed_workout(conn, "w001", "2024-06-01T08:00:00Z")
+            _seed_workout(conn, "w001", "2026-09-01T08:00:00Z")
             _seed_exercise(conn, 1, "w001", "t001")
             _seed_set(conn, 1, 1, 50.0, 10, 0)
 
@@ -389,13 +389,13 @@ class TestDashboardGroupingOrder:
 
             # maintain exercise (not top of range)
             _seed_template(conn, "t001", "Pull-up", "Back")
-            _seed_workout(conn, "w001", "2024-06-01T08:00:00Z")
+            _seed_workout(conn, "w001", "2026-09-01T08:00:00Z")
             _seed_exercise(conn, 1, "w001", "t001")
             _seed_set(conn, 1, 1, 70.0, 8, 0)  # maintain
 
             # progress exercise (all reps >= 12)
             _seed_template(conn, "t002", "Bench Press", "Chest")
-            _seed_workout(conn, "w002", "2024-06-02T08:00:00Z")
+            _seed_workout(conn, "w002", "2026-09-02T08:00:00Z")
             _seed_exercise(conn, 2, "w002", "t002")
             _seed_set(conn, 2, 2, 80.0, 12, 0)  # progress
 
