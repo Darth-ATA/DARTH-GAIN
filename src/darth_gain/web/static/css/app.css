@@ -806,4 +806,8 @@ details[open] > .nav-menu {
     .card-body {
         grid-template-columns: 1fr;
     }
+
+    .stat-label {
+        font-size: clamp(0.75rem, 0.9rem - 0.375vw, 0.8125rem);
+    }
 }

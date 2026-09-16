@@ -116,6 +116,38 @@ The system SHOULD run progression checks for all exercise templates in a single 
 - WHEN the bulk refresh runs
 - THEN `ProgressionEngine.check()` is called for each of the 10 templates and results are persisted
 
+### Requirement: Stat label font size scales fluidly on mobile viewports
+
+The system SHALL render `.stat-label` elements within exercise cards using a fluid font-size scale between 375px and 640px viewport widths. At 375px (iPhone 12 mini), the font-size MUST be at least 0.8125rem (13px). At 640px, the font-size MUST be 0.75rem (12px). Between these breakpoints, font-size SHALL scale fluidly using CSS `clamp()`.
+
+#### Scenario: Stat labels render at 13px on iPhone 12 mini (375px)
+
+- GIVEN the dashboard is viewed at 375px viewport width
+- WHEN exercise cards render with stat labels
+- THEN each `.stat-label` has a computed font-size of 0.8125rem (13px)
+- AND labels are visually readable without zooming
+
+#### Scenario: Stat labels fluidly scale between 375px and 640px
+
+- GIVEN the dashboard viewport width is between 375px and 640px
+- WHEN exercise cards render with stat labels
+- THEN each `.stat-label` font-size scales smoothly via `clamp(0.8125rem, 0.75rem + 0.1667vw, 0.8125rem)`
+- AND no abrupt font-size jumps occur during resize
+
+#### Scenario: Stat labels remain 12px at desktop breakpoint (≥640px)
+
+- GIVEN the dashboard is viewed at 640px or wider
+- WHEN exercise cards render with stat labels
+- THEN each `.stat-label` has a computed font-size of 0.75rem (12px)
+- AND the existing desktop typography is unchanged
+
+#### Scenario: Tablet viewports (640px–768px) unaffected
+
+- GIVEN the dashboard is viewed between 640px and 768px
+- WHEN exercise cards render with stat labels
+- THEN each `.stat-label` remains at 0.75rem (12px)
+- AND the existing 768px media query behavior is preserved
+
 ## Edge Cases
 
 - **Large datasets**: Dashboard SHOULD paginate or virtual-scroll if exercise list exceeds 50 entries
