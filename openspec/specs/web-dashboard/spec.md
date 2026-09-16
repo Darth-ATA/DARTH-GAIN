@@ -131,7 +131,7 @@ The system SHALL render `.stat-label` elements within exercise cards using a flu
 
 - GIVEN the dashboard viewport width is between 375px and 640px
 - WHEN exercise cards render with stat labels
-- THEN each `.stat-label` font-size scales smoothly via `clamp(0.8125rem, 0.75rem + 0.1667vw, 0.8125rem)`
+- THEN each `.stat-label` font-size scales smoothly via `clamp(0.75rem, 0.9rem - 0.375vw, 0.8125rem)`
 - AND no abrupt font-size jumps occur during resize
 
 #### Scenario: Stat labels remain 12px at desktop breakpoint (≥640px)
