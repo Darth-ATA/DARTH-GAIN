@@ -811,3 +811,66 @@ details[open] > .nav-menu {
         font-size: clamp(0.75rem, 0.9rem - 0.375vw, 0.8125rem);
     }
 }
+
+/* =========================================================================
+   Mobile Touch Targets — 375px baseline (iPhone 12 mini)
+   ========================================================================= */
+
+@media (max-width: 375px) {
+    /* --- Buttons: all variants meet 44px min-height --- */
+    .btn,
+    .btn-primary,
+    .btn-secondary,
+    .btn-sm {
+        min-height: 44px;
+    }
+
+    /* --- Navigation links: block display + 44px min-height --- */
+    .nav-link,
+    .nav-menu .nav-link {
+        display: block;
+        min-height: 44px;
+    }
+
+    /* --- Form inputs: 44px min-height --- */
+    .form-group input[type="text"],
+    .form-group input[type="password"],
+    .form-group input[type="number"],
+    .form-group input[type="email"],
+    .form-group input:not([type]) {
+        min-height: 44px;
+    }
+
+    /* --- Card title links: block display + 44px min-height --- */
+    .card-title a {
+        display: block;
+        min-height: 44px;
+    }
+
+    /* --- Back link: inline-flex + 44px min-height --- */
+    .back-link {
+        display: inline-flex;
+        min-height: 44px;
+    }
+
+    /* --- Details/summary & history toggle: 44px min-height --- */
+    details summary,
+    .history-details-toggle {
+        min-height: 44px;
+    }
+
+    /* --- Checkbox/radio labels: flex + 44px min-height --- */
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+    }
+
+    /* --- Checkbox/radio inputs: 24px (1.5rem) sizing --- */
+    .checkbox-label input[type="checkbox"],
+    .checkbox-label input[type="radio"] {
+        width: 1.5rem;
+        height: 1.5rem;
+        flex-shrink: 0;
+    }
+}
