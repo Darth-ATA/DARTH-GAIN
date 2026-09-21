@@ -879,6 +879,11 @@ details[open] > .nav-menu {
         padding: 1rem 0.5rem;
     }
 
+    /* --- Card body: tighten vertical/horizontal gap on very small screens --- */
+    .card-body {
+        gap: 0.375rem 0.75rem;
+    }
+
     /* --- Status badges: truncate long text on very small screens --- */
     .status-badge {
         max-width: 100px;
