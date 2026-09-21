@@ -873,4 +873,9 @@ details[open] > .nav-menu {
         height: 1.5rem;
         flex-shrink: 0;
     }
+
+    /* --- Container: reduced horizontal padding for small screens --- */
+    .container {
+        padding: 1rem 0.5rem;
+    }
 }

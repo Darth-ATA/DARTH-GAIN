@@ -120,6 +120,38 @@ The system SHOULD run progression checks for all exercise templates in a single 
 
 The system SHALL render `.stat-label` elements within exercise cards using a fluid font-size scale between 375px and 640px viewport widths. At 375px (iPhone 12 mini), the font-size MUST be at least 0.8125rem (13px). At 640px, the font-size MUST be 0.75rem (12px). Between these breakpoints, font-size SHALL scale fluidly using CSS `clamp()`.
 
+### Requirement: Container horizontal padding reduces at 375px viewport
+
+The system MUST reduce the `.container` horizontal padding from 0.75rem to 0.5rem when the viewport width is 375px or less (iPhone 12 mini baseline). This ensures content remains readable without horizontal overflow on the smallest common mobile screens.
+
+#### Scenario: Container uses 0.5rem horizontal padding at 375px
+
+- GIVEN the dashboard is viewed at exactly 375px viewport width
+- WHEN the `.container` element renders
+- THEN the computed horizontal padding (left + right) is 0.5rem (8px)
+- AND content has 16px more usable width compared to the 640px breakpoint
+
+#### Scenario: Container padding transitions smoothly between 375px and 640px
+
+- GIVEN the viewport width is between 375px and 640px
+- WHEN the `.container` element renders
+- THEN horizontal padding remains at 0.75rem (12px) — the 640px breakpoint value
+- AND no abrupt padding change occurs at the 375px boundary (only applies at ≤375px)
+
+#### Scenario: No horizontal scrollbar appears at 375px
+
+- GIVEN the dashboard is viewed at 375px viewport width with typical content
+- WHEN the page renders
+- THEN the `body` element does NOT have a horizontal scrollbar
+- AND all content fits within the viewport width including the reduced container padding
+
+#### Scenario: Existing 640px container padding preserved
+
+- GIVEN the dashboard is viewed at 640px viewport width
+- WHEN the `.container` element renders
+- THEN horizontal padding is 0.75rem (12px) as defined in the existing 640px media query
+- AND the 375px rule does not affect viewports wider than 375px
+
 #### Scenario: Stat labels render at 13px on iPhone 12 mini (375px)
 
 - GIVEN the dashboard is viewed at 375px viewport width
