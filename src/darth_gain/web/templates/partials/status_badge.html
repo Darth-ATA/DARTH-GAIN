@@ -1,13 +1,16 @@
-<span class="status-badge status-{{ status }}">
-    {%- if status == "progress" -%}
-        PROGRESS
-    {%- elif status == "maintain" -%}
-        MAINTAIN
-    {%- elif status == "skipped" -%}
-        SKIPPED
-    {%- elif status == "insufficient_data" -%}
-        INSUFFICIENT DATA
-    {%- else -%}
-        {{ status | upper }}
-    {%- endif -%}
-</span>
+{% set badge_status = badge_status | default(status) %}
+{% set badge_display = badge_display | default(badge_status) %}
+{%- if badge_status == "progress" -%}
+    {% set badge_display = "PROGRESS" %}
+{%- elif badge_status == "maintain" -%}
+    {% set badge_display = "MAINTAIN" %}
+{%- elif badge_status == "skipped" -%}
+    {% set badge_display = "SKIPPED" %}
+{%- elif badge_status == "insufficient_data" -%}
+    {% set badge_display = "INSUFFICIENT DATA" %}
+{%- elif badge_status == "deload_recommended" -%}
+    {% set badge_display = "DELOAD RECOMMENDED" %}
+{%- else -%}
+    {% set badge_display = badge_status | upper %}
+{%- endif -%}
+<span class="status-badge status-{{ badge_status }}" title="{{ badge_display }}">{{ badge_display }}</span>

@@ -293,6 +293,39 @@ class TestDashboardWithExercises:
         response = auth_client.get("/")
         assert response.status_code == 200
 
+    def test_badge_title_insufficient_data(self, auth_client):
+        """INSUFFICIENT DATA badge should have full text in title attribute."""
+        response = auth_client.get("/")
+        assert response.status_code == 200
+        html = response.text
+        # Find status-insufficient_data badge and verify title
+        assert 'class="status-badge status-insufficient_data"' in html
+        assert 'title="INSUFFICIENT DATA"' in html
+
+    def test_badge_title_progress(self, auth_client):
+        """PROGRESS badge should have title attribute."""
+        response = auth_client.get("/")
+        assert response.status_code == 200
+        html = response.text
+        assert 'class="status-badge status-progress"' in html
+        assert 'title="PROGRESS"' in html
+
+    def test_badge_title_maintain(self, auth_client):
+        """MAINTAIN badge should have title attribute."""
+        response = auth_client.get("/")
+        assert response.status_code == 200
+        html = response.text
+        assert 'class="status-badge status-maintain"' in html
+        assert 'title="MAINTAIN"' in html
+
+    def test_badge_title_skipped(self, auth_client):
+        """SKIPPED badge should have title attribute."""
+        response = auth_client.get("/")
+        assert response.status_code == 200
+        html = response.text
+        assert 'class="status-badge status-skipped"' in html
+        assert 'title="SKIPPED"' in html
+
 
 # ===========================================================================
 # T3 — Error isolation

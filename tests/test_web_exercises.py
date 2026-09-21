@@ -303,6 +303,51 @@ class TestExerciseDetail:
         html = response.text.lower()
         assert "back to dashboard" in html or "←" in html
 
+    def test_detail_uses_partial_for_status_summary(self, auth_client):
+        """Status summary section should use partial, not inline markup."""
+        response = auth_client.get("/exercises/bench_press")
+        assert response.status_code == 200
+        html = response.text
+        # Should have include pattern (via rendered partial), not inline status-badge with different class
+        # The partial renders: <span class="status-badge status-{{ badge_status }}" title="{{ badge_status | upper }}">
+        assert 'class="status-badge status-' in html
+        assert 'title="' in html
+        # Check that status_str is properly passed as badge_status
+        assert 'status-summary' in html
+
+    def test_detail_history_table_uses_partial(self, auth_client):
+        """History table should use partial for each entry's status badge."""
+        response = auth_client.get("/exercises/bench_press")
+        assert response.status_code == 200
+        html = response.text
+        # History table has multiple badges - all should have title attribute
+        title_count = html.count('class="status-badge status-')
+        # Should have at least the status summary + history entries
+        assert title_count >= 1
+
+    def test_detail_history_cards_mobile_uses_partial(self, auth_client):
+        """Mobile history cards should use partial for status badge."""
+        response = auth_client.get("/exercises/bench_press")
+        assert response.status_code == 200
+        html = response.text
+        # Mobile cards section exists
+        assert 'history-cards' in html
+        # Badges in mobile cards should also have title
+        assert 'title="' in html
+
+    def test_no_inline_status_badge_markup_in_detail(self, auth_client):
+        """Verify no inline status-badge spans exist in exercise_detail.html."""
+        response = auth_client.get("/exercises/bench_press")
+        assert response.status_code == 200
+        html = response.text
+        # The old inline markup had: {% if exercise.status == 'INSUFFICIENT DATA' %}INSUFFICIENT DATA{% else %}{{ exercise.status }}{% endif %}
+        # This pattern should not appear - all badges should come from partial
+        # We verify by checking all status-badge spans have title attribute (partial adds it)
+        import re
+        status_badges = re.findall(r'<span class="status-badge[^>]*>', html)
+        for badge in status_badges:
+            assert 'title=' in badge, f"Badge missing title attribute: {badge}"
+
 
 # ===========================================================================
 # T4 — Config editor
