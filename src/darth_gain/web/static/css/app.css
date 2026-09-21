@@ -878,4 +878,11 @@ details[open] > .nav-menu {
     .container {
         padding: 1rem 0.5rem;
     }
+
+    /* --- Status badges: truncate long text on very small screens --- */
+    .status-badge {
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }

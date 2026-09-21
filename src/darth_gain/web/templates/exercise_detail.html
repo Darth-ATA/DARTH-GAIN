@@ -25,19 +25,8 @@
         <div class="status-summary">
             <div class="status-summary-item">
                 <span class="stat-label">Status</span>
-            <span class="status-badge status-{{ status_str }}">
-                {%- if status_str == "progress" -%}
-                    PROGRESS
-                {%- elif status_str == "maintain" -%}
-                    MAINTAIN
-                {%- elif status_str == "skipped" -%}
-                    SKIPPED
-                {%- elif status_str == "insufficient_data" -%}
-                    INSUFFICIENT DATA
-                {%- else -%}
-                    {{ status_str | upper }}
-                {%- endif -%}
-            </span>
+                {% set badge_status = status_str %}
+                {% include "partials/status_badge.html" %}
             </div>
             {% if status.current_weight_kg is not none %}
             <div class="status-summary-item">
@@ -86,9 +75,8 @@
                 <tr class="history-row">
                     <td class="history-date">{{ entry.checked_at[:10] if entry.checked_at else "—" }}</td>
                     <td>
-                        <span class="status-badge status-{{ entry.status }}">
-                            {{ entry.status | upper }}
-                        </span>
+                        {% set badge_status = entry.status %}
+                        {% include "partials/status_badge.html" %}
                     </td>
                     <td class="history-weight">
                         {{ entry.current_weight_kg ~ " kg" if entry.current_weight_kg is not none else "—" }}
@@ -118,7 +106,8 @@
         <div class="history-card">
             <div class="history-card-header">
                 <span class="history-card-date">{{ entry.checked_at[:10] if entry.checked_at else "—" }}</span>
-                <span class="status-badge status-{{ entry.status }}">{{ entry.status | upper }}</span>
+                {% set badge_status = entry.status %}
+                        {% include "partials/status_badge.html" %}
             </div>
             <div class="history-card-body">
                 <div class="history-card-stat">
