@@ -27,6 +27,20 @@
             {% if group.last_done_formatted %}
             <span class="group-last-done">— last done {{ group.last_done_formatted }}</span>
             {% endif %}
+            <a href="/api/v1/routines/{{ group.routine_id }}/export?weeks=8"
+               class="btn btn-ghost btn-sm export-btn"
+               download
+               data-routine-title="{{ group.routine_title }}"
+               data-toast-success="Exportación lista: {{ group.routine_title }}"
+               data-toast-error="Error al exportar {{ group.routine_title }}"
+               aria-label="Exportar {{ group.routine_title }} para IA">
+                <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <span>Exportar para IA</span>
+            </a>
         </h2>
         <div class="exercise-grid">
             {% for card in group.exercises %}
@@ -55,4 +69,71 @@
     {% endif %}
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Alpine toast store if not already present
+    if (!window.Alpine) return;
+    
+    Alpine.store('toast', {
+        toasts: [],
+        show(message, type = 'info') {
+            const id = Date.now();
+            this.toasts.push({ id, message, type });
+            setTimeout(() => this.dismiss(id), 5000);
+        },
+        dismiss(id) {
+            this.toasts = this.toasts.filter(t => t.id !== id);
+        }
+    });
+    
+    // Export button handler with fetch fallback for error handling
+    document.querySelectorAll('.export-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const url = btn.href;
+            const routineTitle = btn.dataset.routineTitle || 'rutina';
+            
+            try {
+                const resp = await fetch(url, { 
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (!resp.ok) {
+                    let errMsg = 'Error al exportar';
+                    try {
+                        const err = await resp.json();
+                        errMsg = err.detail || errMsg;
+                    } catch {}
+                    throw new Error(errMsg);
+                }
+                
+                const blob = await resp.blob();
+                // Extract filename from Content-Disposition header
+                let filename = btn.download || 'export.json';
+                const cd = resp.headers.get('content-disposition');
+                if (cd) {
+                    const match = cd.match(/filename="(.+)"/);
+                    if (match) filename = match[1];
+                }
+                
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+                
+                Alpine.store('toast').show(btn.dataset.toastSuccess || `Exportación lista: ${routineTitle}`, 'success');
+            } catch (err) {
+                Alpine.store('toast').show(`${btn.dataset.toastError || 'Error al exportar'}: ${err.message}`, 'error');
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
