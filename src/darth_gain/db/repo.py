@@ -320,3 +320,118 @@ def get_sync_meta(conn: sqlite3.Connection, key: str) -> str | None:
     )
     row = cursor.fetchone()
     return row["value"] if row else None
+
+
+# ---------------------------------------------------------------------------
+# Routine Export
+# ---------------------------------------------------------------------------
+
+
+def get_routine_export(
+    conn: sqlite3.Connection,
+    routine_id: str,
+    start_date: str,  # ISO UTC
+    end_date: str,    # ISO UTC
+) -> dict[str, Any] | None:
+    """Fetch complete routine export data for a date window.
+
+    Args:
+        conn: Open SQLite connection.
+        routine_id: The routine UUID to export.
+        start_date: Window start (inclusive), ISO 8601 UTC.
+        end_date: Window end (inclusive), ISO 8601 UTC.
+
+    Returns:
+        Dict with keys: routine, workouts[], exercises[], sets[], templates{}
+        Returns None if routine not found.
+    """
+    # 1. Verify routine exists
+    routine = get_routine(conn, routine_id)
+    if not routine:
+        return None
+
+    # 2. Get workouts in window for this routine (non-deleted only)
+    workouts = conn.execute(
+        """
+        SELECT w.id, w.title, w.description, w.start_time, w.end_time, w.routine_id
+        FROM workouts w
+        WHERE w.routine_id = ?
+          AND w.is_deleted = 0
+          AND w.start_time >= ?
+          AND w.start_time <= ?
+        ORDER BY w.start_time ASC
+        """,
+        (routine_id, start_date, end_date),
+    ).fetchall()
+
+    workout_ids = [w["id"] for w in workouts]
+
+    if not workout_ids:
+        # Routine exists but no workouts in window
+        return {
+            "routine": dict(routine),
+            "workouts": [],
+            "exercises": [],
+            "sets": [],
+            "templates": {},
+        }
+
+    placeholders = ",".join("?" * len(workout_ids))
+
+    # 3. Exercises for these workouts
+    exercises = conn.execute(
+        f"""
+        SELECT e.id, e.workout_id, e.exercise_template_id, e.title, e.notes, e.sort_order
+        FROM exercises e
+        WHERE e.workout_id IN ({placeholders})
+        ORDER BY e.workout_id, e.sort_order
+        """,
+        workout_ids,
+    ).fetchall()
+
+    exercise_ids = [e["id"] for e in exercises]
+
+    if not exercise_ids:
+        return {
+            "routine": dict(routine),
+            "workouts": [dict(w) for w in workouts],
+            "exercises": [],
+            "sets": [],
+            "templates": {},
+        }
+
+    ex_placeholders = ",".join("?" * len(exercise_ids))
+
+    # 4. Sets for these exercises
+    sets = conn.execute(
+        f"""
+        SELECT s.exercise_id, s.set_index, s.type, s.weight_kg, s.reps,
+               s.distance_meters, s.duration_seconds, s.rpe
+        FROM sets s
+        WHERE s.exercise_id IN ({ex_placeholders})
+        ORDER BY s.exercise_id, s.set_index
+        """,
+        exercise_ids,
+    ).fetchall()
+
+    # 5. Templates for muscle group info
+    template_ids = list({e["exercise_template_id"] for e in exercises if e["exercise_template_id"]})
+    templates: dict[str, dict[str, Any]] = {}
+    if template_ids:
+        tmpl_placeholders = ",".join("?" * len(template_ids))
+        for row in conn.execute(
+            f"""
+            SELECT id, title, primary_muscle_group
+            FROM exercise_templates WHERE id IN ({tmpl_placeholders})
+            """,
+            template_ids,
+        ).fetchall():
+            templates[row["id"]] = dict(row)
+
+    return {
+        "routine": dict(routine),
+        "workouts": [dict(w) for w in workouts],
+        "exercises": [dict(e) for e in exercises],
+        "sets": [dict(s) for s in sets],
+        "templates": templates,
+    }
